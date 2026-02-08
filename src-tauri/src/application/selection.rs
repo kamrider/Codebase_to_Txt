@@ -159,6 +159,37 @@ mod tests {
     }
 
     #[test]
+    fn manual_inherit_defers_to_gitignore_and_globs() {
+        let root = tempdir().unwrap();
+        fs::write(root.path().join(".gitignore"), "ignored.txt\n").unwrap();
+        fs::write(root.path().join("ignored.txt"), "ignored").unwrap();
+        fs::write(root.path().join("blocked.txt"), "blocked").unwrap();
+        fs::write(root.path().join("allowed.txt"), "allowed").unwrap();
+
+        let mut manual = BTreeMap::new();
+        manual.insert("ignored.txt".to_string(), ManualSelectionState::Inherit);
+        manual.insert("blocked.txt".to_string(), ManualSelectionState::Inherit);
+
+        let config = ExportConfig {
+            root_path: root.path().to_string_lossy().to_string(),
+            use_gitignore: true,
+            include_globs: vec!["*.txt".to_string()],
+            exclude_globs: vec!["blocked.txt".to_string()],
+            include_extensions: vec![],
+            exclude_extensions: vec![],
+            max_file_size_kb: 1024,
+            large_file_strategy: LargeFileStrategy::Truncate,
+            manual_selections: manual,
+            output_format: OutputFormat::Txt,
+        };
+
+        let run = collect_selected_files(&config, &ScanLimits::default()).unwrap();
+        let included: Vec<&str> = run.files.iter().map(|item| item.rel_path.as_str()).collect();
+        assert_eq!(included, vec!["allowed.txt"]);
+        assert!(run.excluded_files >= 2);
+    }
+
+    #[test]
     fn emits_max_files_warning_when_limit_is_hit() {
         let root = tempdir().unwrap();
         fs::write(root.path().join("a.txt"), "a").unwrap();

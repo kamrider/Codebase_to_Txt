@@ -60,11 +60,11 @@ impl RuleEngine {
         }
 
         if let Some(manual_state) = self.manual_state_for(rel_path) {
-            return match manual_state {
-                ManualSelectionState::Include => Decision::Include,
-                ManualSelectionState::Exclude => Decision::Exclude,
-                ManualSelectionState::Inherit => Decision::Include,
-            };
+            match manual_state {
+                ManualSelectionState::Include => return Decision::Include,
+                ManualSelectionState::Exclude => return Decision::Exclude,
+                ManualSelectionState::Inherit => {}
+            }
         }
 
         if !is_dir {
