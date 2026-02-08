@@ -15,9 +15,11 @@ dist-ssr
 
 # Tauri / Rust generated artifacts
 src-tauri/target/
+src-tauri/target-codex*/
 src-tauri/gen/
 src-tauri/.cargo/
 src-tauri/.rustc_info.json
+Debug/
 
 # Editor directories and files
 .vscode/*

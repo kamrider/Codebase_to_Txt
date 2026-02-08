@@ -11,6 +11,7 @@ pub struct ExportConfig {
     pub exclude_globs: Vec<String>,
     pub include_extensions: Vec<String>,
     pub exclude_extensions: Vec<String>,
+    #[serde(rename = "maxFileSizeKB", alias = "maxFileSizeKb")]
     pub max_file_size_kb: u64,
     pub large_file_strategy: LargeFileStrategy,
     pub manual_selections: BTreeMap<String, ManualSelectionState>,
@@ -88,5 +89,50 @@ impl Default for ScanLimits {
             max_files: 100_000,
             max_depth: 64,
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use serde_json::json;
+
+    use super::ExportConfig;
+
+    #[test]
+    fn export_config_accepts_max_file_size_kb_uppercase_key() {
+        let payload = json!({
+            "rootPath": "D:/repo",
+            "useGitignore": true,
+            "includeGlobs": [],
+            "excludeGlobs": [],
+            "includeExtensions": [],
+            "excludeExtensions": [],
+            "maxFileSizeKB": 256,
+            "largeFileStrategy": "truncate",
+            "manualSelections": {},
+            "outputFormat": "txt"
+        });
+
+        let config: ExportConfig = serde_json::from_value(payload).unwrap();
+        assert_eq!(config.max_file_size_kb, 256);
+    }
+
+    #[test]
+    fn export_config_accepts_legacy_max_file_size_kb_camel_case_key() {
+        let payload = json!({
+            "rootPath": "D:/repo",
+            "useGitignore": true,
+            "includeGlobs": [],
+            "excludeGlobs": [],
+            "includeExtensions": [],
+            "excludeExtensions": [],
+            "maxFileSizeKb": 128,
+            "largeFileStrategy": "truncate",
+            "manualSelections": {},
+            "outputFormat": "txt"
+        });
+
+        let config: ExportConfig = serde_json::from_value(payload).unwrap();
+        assert_eq!(config.max_file_size_kb, 128);
     }
 }

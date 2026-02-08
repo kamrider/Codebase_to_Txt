@@ -4,6 +4,7 @@ import { ExportPanel } from "../../features/export/components/ExportPanel";
 import { RulesPanel } from "../../features/rules/components/RulesPanel";
 import {
   evaluateSelection,
+  pickExportPath,
   previewExport,
   runExport,
   scanChildren,
@@ -25,7 +26,7 @@ export function WorkbenchPage() {
   const [selectionSummary, setSelectionSummary] = useState<SelectionSummary | null>(null);
   const [preview, setPreview] = useState<PreviewMeta | null>(null);
   const [exportResult, setExportResult] = useState<ExportResult | null>(null);
-  const [outputPath, setOutputPath] = useState("D:/exports/codebase-to-txt-output.txt");
+  const [outputPath, setOutputPath] = useState(() => buildDefaultOutputPath(""));
   const [pendingAction, setPendingAction] = useState<string | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [expandedPaths, setExpandedPaths] = useState<Set<string>>(new Set());
@@ -64,6 +65,7 @@ export function WorkbenchPage() {
     setExpandedPaths(new Set());
     setLoadingPaths(new Set());
     setErrorMessage(null);
+    setOutputPath(buildDefaultOutputPath(nextPath));
   };
 
   const handleScan = async () => {
@@ -158,9 +160,33 @@ export function WorkbenchPage() {
   };
 
   const handleExport = async () => {
-    const result = await runAction("export", async () => runExport(config, outputPath));
+    if (!outputPath.trim()) {
+      setErrorMessage("Output path is required before export.");
+      return;
+    }
+
+    const evaluated = await runAction("evaluate", async () => evaluateSelection(config));
+    if (!evaluated) {
+      return;
+    }
+    setSelectionSummary(evaluated);
+
+    if (evaluated.includedFiles === 0) {
+      setErrorMessage("No files selected for export. Run Evaluate and include at least one file.");
+      setExportResult(null);
+      return;
+    }
+
+    const result = await runAction("export", async () => runExport(config, outputPath.trim()));
     if (result) {
       setExportResult(result);
+    }
+  };
+
+  const handlePickOutputPath = async () => {
+    const pickedPath = await runAction("pick-path", async () => pickExportPath(outputPath));
+    if (pickedPath) {
+      setOutputPath(pickedPath.replace(/\\/g, "/"));
     }
   };
 
@@ -189,6 +215,7 @@ export function WorkbenchPage() {
         selectionSummary={selectionSummary}
         errorMessage={errorMessage}
         onOutputPathChange={setOutputPath}
+        onPickOutputPath={handlePickOutputPath}
         onPreview={handlePreview}
         onExport={handleExport}
       />
@@ -231,11 +258,31 @@ const ERROR_CODE_MESSAGES: Record<string, string> = {
   E_DIRPATH_NOT_DIR: "The requested dirPath is not a directory.",
   E_OUTPUT_REQUIRED: "Output path is required.",
   E_OUTPUT_IS_DIR: "Output path must be a file path, not a directory.",
-  E_OUTPUT_EXISTS: "Output file already exists. Overwrite is disabled by default.",
+  E_OUTPUT_EXISTS: "Output file conflict occurred.",
   E_IO_READ: "Read failed while scanning or exporting files.",
-  E_IO_WRITE: "Write failed while creating export output.",
+  E_IO_WRITE: "Write failed while creating export output. Check file path and write permissions.",
   E_RULE_INVALID_GLOB: "One or more glob rules are invalid.",
 };
+
+function buildDefaultOutputPath(rootPath: string): string {
+  const normalizedRoot = rootPath.trim().replace(/\\/g, "/").replace(/\/+$/, "");
+  const fileName = `codebase-to-txt-${formatTimestampForFileName(new Date())}.txt`;
+  if (!normalizedRoot) {
+    return `exports/${fileName}`;
+  }
+  return `${normalizedRoot}/exports/${fileName}`;
+}
+
+function formatTimestampForFileName(date: Date): string {
+  const pad = (value: number) => String(value).padStart(2, "0");
+  const year = date.getFullYear();
+  const month = pad(date.getMonth() + 1);
+  const day = pad(date.getDate());
+  const hour = pad(date.getHours());
+  const minute = pad(date.getMinutes());
+  const second = pad(date.getSeconds());
+  return `${year}${month}${day}-${hour}${minute}${second}`;
+}
 
 function patchTreeByPath(
   node: TreeNode,

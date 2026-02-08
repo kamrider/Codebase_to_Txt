@@ -34,3 +34,12 @@ export async function runExport(
 ): Promise<ExportResult> {
   return invoke<ExportResult>("run_export", { config, outputPath });
 }
+
+export async function pickExportPath(defaultPath?: string): Promise<string | null> {
+  return invoke<string | null>("plugin:dialog|save", {
+    options: {
+      defaultPath: defaultPath?.trim() ? defaultPath.trim() : undefined,
+      filters: [{ name: "Text", extensions: ["txt"] }],
+    },
+  });
+}

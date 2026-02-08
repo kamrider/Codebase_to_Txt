@@ -12,6 +12,7 @@ type ExportPanelProps = {
   selectionSummary: SelectionSummary | null;
   errorMessage: string | null;
   onOutputPathChange: (nextPath: string) => void;
+  onPickOutputPath: () => Promise<void>;
   onPreview: () => Promise<void>;
   onExport: () => Promise<void>;
 };
@@ -24,6 +25,7 @@ export function ExportPanel({
   selectionSummary,
   errorMessage,
   onOutputPathChange,
+  onPickOutputPath,
   onPreview,
   onExport,
 }: ExportPanelProps) {
@@ -41,6 +43,11 @@ export function ExportPanel({
             onChange={(event) => onOutputPathChange(event.currentTarget.value)}
             placeholder="D:/exports/codebase.txt"
           />
+          <div className="actions">
+            <button className="btn" onClick={() => void onPickOutputPath()} disabled={busy}>
+              Choose File
+            </button>
+          </div>
         </div>
 
         <div className="actions">

@@ -7,8 +7,7 @@ use content_inspector::inspect;
 
 use crate::application::selection::collect_selected_files;
 use crate::infrastructure::errors::{
-    coded, read_error, write_error, E_IO_WRITE, E_OUTPUT_EXISTS, E_OUTPUT_IS_DIR,
-    E_OUTPUT_REQUIRED,
+    coded, read_error, write_error, E_IO_WRITE, E_OUTPUT_IS_DIR, E_OUTPUT_REQUIRED,
 };
 use crate::models::{
     ExportConfig, ExportResult, LargeFileStrategy, PreviewMeta, ScanLimits, SelectionSummary,
@@ -58,14 +57,18 @@ pub fn run_export(
 ) -> Result<ExportResult, String> {
     let selection = collect_selected_files(config, limits)?;
     let output_abs = prepare_output_path(output_path)?;
+    let output_preexisted = output_abs.is_file();
 
     let parent = output_abs
         .parent()
         .ok_or_else(|| coded(E_OUTPUT_IS_DIR, "outputPath must include a parent directory"))?;
-    fs::create_dir_all(parent).map_err(|e| write_error("Failed to create output directory", e))?;
+    if !parent.as_os_str().is_empty() {
+        fs::create_dir_all(parent).map_err(|e| write_error("Failed to create output directory", e))?;
+    }
 
     let file = OpenOptions::new()
-        .create_new(true)
+        .create(true)
+        .truncate(true)
         .write(true)
         .open(&output_abs)
         .map_err(|e| write_error("Failed to create output file", e))?;
@@ -75,6 +78,12 @@ pub fn run_export(
     let mut exported_files = 0usize;
     let mut skipped_files = 0usize;
     let mut notes = selection.warnings;
+    if output_preexisted {
+        notes.push(format!(
+            "Overwrote existing output file '{}'",
+            output_abs.to_string_lossy().replace('\\', "/")
+        ));
+    }
 
     write_line(&mut writer, "=== STRUCTURE ===", &mut total_written)?;
     for line in build_structure_lines(&selection.files) {
@@ -190,16 +199,10 @@ fn prepare_output_path(output_path: &str) -> Result<PathBuf, String> {
             "outputPath must be a file path, not a directory",
         ));
     }
-    if candidate.exists() {
-        if candidate.is_dir() {
-            return Err(coded(
-                E_OUTPUT_IS_DIR,
-                "outputPath must be a file path, not a directory",
-            ));
-        }
+    if candidate.exists() && candidate.is_dir() {
         return Err(coded(
-            E_OUTPUT_EXISTS,
-            "outputPath already exists; overwrite is disabled by default",
+            E_OUTPUT_IS_DIR,
+            "outputPath must be a file path, not a directory",
         ));
     }
     Ok(candidate.to_path_buf())
@@ -430,26 +433,29 @@ mod tests {
     }
 
     #[test]
-    fn rejects_existing_output_file_by_default() {
+    fn overwrites_existing_output_file_when_path_exists() {
         let root = tempdir().unwrap();
         fs::write(root.path().join("input.txt"), "hello").unwrap();
 
         let output_dir = tempdir().unwrap();
         let output_path = output_dir.path().join("existing.txt");
-        fs::write(&output_path, "existing").unwrap();
+        fs::write(&output_path, "old content").unwrap();
 
         let config = test_config(root.path().to_string_lossy().as_ref(), LargeFileStrategy::Truncate, 256);
         let result = run_export(
             &config,
             output_path.to_string_lossy().as_ref(),
             &ScanLimits::default(),
-        );
+        )
+        .unwrap();
 
-        assert!(result.is_err());
+        let output = fs::read_to_string(output_path).unwrap();
+        assert_eq!(result.exported_files, 1);
+        assert!(output.contains("hello"));
         assert!(result
-            .err()
-            .unwrap()
-            .contains("overwrite is disabled by default"));
+            .notes
+            .iter()
+            .any(|note| note.contains("Overwrote existing output file")));
     }
 
     #[test]
