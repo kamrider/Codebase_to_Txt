@@ -1,4 +1,8 @@
-﻿import type { SelectionSummary, TreeNode } from "../../../shared/types/export";
+import type {
+  ManualSelectionState,
+  SelectionSummary,
+  TreeNode,
+} from "../../../shared/types/export";
 
 type DirectoryPanelProps = {
   rootPath: string;
@@ -7,10 +11,12 @@ type DirectoryPanelProps = {
   selectionSummary: SelectionSummary | null;
   expandedPaths: Set<string>;
   loadingPaths: Set<string>;
+  manualSelections: Record<string, ManualSelectionState>;
   onRootPathChange: (nextPath: string) => void;
   onScan: () => Promise<void>;
   onEvaluate: () => Promise<void>;
   onToggleNode: (node: TreeNode) => Promise<void>;
+  onCycleManualSelection: (path: string) => void;
 };
 
 export function DirectoryPanel({
@@ -20,10 +26,12 @@ export function DirectoryPanel({
   selectionSummary,
   expandedPaths,
   loadingPaths,
+  manualSelections,
   onRootPathChange,
   onScan,
   onEvaluate,
   onToggleNode,
+  onCycleManualSelection,
 }: DirectoryPanelProps) {
   return (
     <section className="panel">
@@ -67,9 +75,12 @@ export function DirectoryPanel({
             <ul className="tree-list">
               <TreeNodeLine
                 node={tree}
+                busy={busy}
                 expandedPaths={expandedPaths}
                 loadingPaths={loadingPaths}
+                manualSelections={manualSelections}
                 onToggleNode={onToggleNode}
+                onCycleManualSelection={onCycleManualSelection}
               />
             </ul>
           ) : (
@@ -83,26 +94,39 @@ export function DirectoryPanel({
 
 type TreeNodeLineProps = {
   node: TreeNode;
+  busy: boolean;
   expandedPaths: Set<string>;
   loadingPaths: Set<string>;
+  manualSelections: Record<string, ManualSelectionState>;
   onToggleNode: (node: TreeNode) => Promise<void>;
+  onCycleManualSelection: (path: string) => void;
 };
 
 function TreeNodeLine({
   node,
+  busy,
   expandedPaths,
   loadingPaths,
+  manualSelections,
   onToggleNode,
+  onCycleManualSelection,
 }: TreeNodeLineProps) {
   const isExpanded = expandedPaths.has(node.path);
   const isLoading = loadingPaths.has(node.path);
   const canExpand = node.isDir && (node.childrenCount === null || node.childrenCount > 0);
+  const manualState = manualSelections[node.path] ?? "inherit";
+  const manualEditable = node.path !== ".";
 
   return (
     <li className="tree-item">
       {canExpand ? (
         <button className="btn" onClick={() => void onToggleNode(node)} disabled={isLoading}>
           {isLoading ? "Loading..." : isExpanded ? "Collapse" : "Expand"}
+        </button>
+      ) : null}{" "}
+      {manualEditable ? (
+        <button className="btn" onClick={() => onCycleManualSelection(node.path)} disabled={busy}>
+          Rule: {manualState}
         </button>
       ) : null}{" "}
       [{node.isDir ? "DIR" : "FILE"}] {node.name || node.path}
@@ -112,9 +136,12 @@ function TreeNodeLine({
             <TreeNodeLine
               key={childNode.path}
               node={childNode}
+              busy={busy}
               expandedPaths={expandedPaths}
               loadingPaths={loadingPaths}
+              manualSelections={manualSelections}
               onToggleNode={onToggleNode}
+              onCycleManualSelection={onCycleManualSelection}
             />
           ))}
         </ul>

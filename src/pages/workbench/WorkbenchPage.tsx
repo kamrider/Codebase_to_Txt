@@ -12,6 +12,7 @@ import {
 import type {
   ExportConfig,
   ExportResult,
+  ManualSelectionState,
   PreviewMeta,
   SelectionSummary,
   TreeNode,
@@ -51,7 +52,18 @@ export function WorkbenchPage() {
   };
 
   const handleRootPathChange = (nextPath: string) => {
-    updateConfig({ rootPath: nextPath });
+    setConfig((previous) => ({
+      ...previous,
+      rootPath: nextPath,
+      manualSelections: {},
+    }));
+    setTree(null);
+    setSelectionSummary(null);
+    setPreview(null);
+    setExportResult(null);
+    setExpandedPaths(new Set());
+    setLoadingPaths(new Set());
+    setErrorMessage(null);
   };
 
   const handleScan = async () => {
@@ -115,6 +127,29 @@ export function WorkbenchPage() {
     }
   };
 
+  const handleCycleManualSelection = (targetPath: string) => {
+    if (targetPath === ".") {
+      return;
+    }
+
+    setConfig((previous) => {
+      const current = previous.manualSelections[targetPath] ?? "inherit";
+      const next = cycleManualState(current);
+      const nextSelections = { ...previous.manualSelections };
+
+      if (next === "inherit") {
+        delete nextSelections[targetPath];
+      } else {
+        nextSelections[targetPath] = next;
+      }
+
+      return { ...previous, manualSelections: nextSelections };
+    });
+    setSelectionSummary(null);
+    setPreview(null);
+    setExportResult(null);
+  };
+
   const handlePreview = async () => {
     const result = await runAction("preview", async () => previewExport(config));
     if (result) {
@@ -138,10 +173,12 @@ export function WorkbenchPage() {
         selectionSummary={selectionSummary}
         expandedPaths={expandedPaths}
         loadingPaths={loadingPaths}
+        manualSelections={config.manualSelections}
         onRootPathChange={handleRootPathChange}
         onScan={handleScan}
         onEvaluate={handleEvaluate}
         onToggleNode={handleToggleNode}
+        onCycleManualSelection={handleCycleManualSelection}
       />
       <RulesPanel config={config} onUpdateConfig={updateConfig} />
       <ExportPanel
@@ -157,6 +194,16 @@ export function WorkbenchPage() {
       />
     </main>
   );
+}
+
+function cycleManualState(state: ManualSelectionState): ManualSelectionState {
+  if (state === "inherit") {
+    return "include";
+  }
+  if (state === "include") {
+    return "exclude";
+  }
+  return "inherit";
 }
 
 function patchTreeByPath(
