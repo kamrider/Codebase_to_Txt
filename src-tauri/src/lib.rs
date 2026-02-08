@@ -1,7 +1,10 @@
+mod application;
 mod commands;
+mod domain;
+mod infrastructure;
 mod models;
 
-use commands::{evaluate_selection, preview_export, run_export, scan_tree};
+use commands::{evaluate_selection, preview_export, run_export, scan_children, scan_tree};
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
@@ -9,6 +12,7 @@ pub fn run() {
         .plugin(tauri_plugin_opener::init())
         .invoke_handler(tauri::generate_handler![
             scan_tree,
+            scan_children,
             evaluate_selection,
             preview_export,
             run_export

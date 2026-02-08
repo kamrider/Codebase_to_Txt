@@ -45,7 +45,7 @@ pub struct TreeNode {
     pub path: String,
     pub name: String,
     pub is_dir: bool,
-    pub children_count: usize,
+    pub children_count: Option<usize>,
     pub children: Vec<TreeNode>,
 }
 
@@ -74,4 +74,19 @@ pub struct ExportResult {
     pub skipped_files: usize,
     pub total_bytes_written: u64,
     pub notes: Vec<String>,
+}
+
+#[derive(Debug, Clone)]
+pub struct ScanLimits {
+    pub max_files: usize,
+    pub max_depth: usize,
+}
+
+impl Default for ScanLimits {
+    fn default() -> Self {
+        Self {
+            max_files: 100_000,
+            max_depth: 64,
+        }
+    }
 }

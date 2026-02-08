@@ -1,4 +1,4 @@
-import type {
+﻿import type {
   ExportConfig,
   LargeFileStrategy,
   OutputFormat,
@@ -43,7 +43,7 @@ export function RulesPanel({ config, onUpdateConfig }: RulesPanelProps) {
   return (
     <section className="panel">
       <div className="panel-header">
-        <h2>规则配置</h2>
+        <h2>Rules</h2>
       </div>
       <div className="panel-body">
         <div className="field">
@@ -54,12 +54,12 @@ export function RulesPanel({ config, onUpdateConfig }: RulesPanelProps) {
               checked={config.useGitignore}
               onChange={(event) => onUpdateConfig({ useGitignore: event.currentTarget.checked })}
             />{" "}
-            读取 .gitignore
+            Apply .gitignore
           </label>
         </div>
 
         <div className="field">
-          <label htmlFor="include-globs">Include Globs（逗号分隔）</label>
+          <label htmlFor="include-globs">Include Globs (comma-separated)</label>
           <input
             id="include-globs"
             value={config.includeGlobs.join(", ")}
@@ -69,7 +69,7 @@ export function RulesPanel({ config, onUpdateConfig }: RulesPanelProps) {
         </div>
 
         <div className="field">
-          <label htmlFor="exclude-globs">Exclude Globs（逗号分隔）</label>
+          <label htmlFor="exclude-globs">Exclude Globs (comma-separated)</label>
           <input
             id="exclude-globs"
             value={config.excludeGlobs.join(", ")}
@@ -79,7 +79,7 @@ export function RulesPanel({ config, onUpdateConfig }: RulesPanelProps) {
         </div>
 
         <div className="field">
-          <label htmlFor="include-extensions">包含后缀（逗号分隔）</label>
+          <label htmlFor="include-extensions">Include Extensions (comma-separated)</label>
           <input
             id="include-extensions"
             value={config.includeExtensions.join(", ")}
@@ -91,7 +91,7 @@ export function RulesPanel({ config, onUpdateConfig }: RulesPanelProps) {
         </div>
 
         <div className="field">
-          <label htmlFor="exclude-extensions">排除后缀（逗号分隔）</label>
+          <label htmlFor="exclude-extensions">Exclude Extensions (comma-separated)</label>
           <input
             id="exclude-extensions"
             value={config.excludeExtensions.join(", ")}
@@ -103,7 +103,7 @@ export function RulesPanel({ config, onUpdateConfig }: RulesPanelProps) {
         </div>
 
         <div className="field">
-          <label htmlFor="max-size-kb">文件大小阈值（KB）</label>
+          <label htmlFor="max-size-kb">Max File Size (KB)</label>
           <input
             id="max-size-kb"
             type="number"
@@ -116,7 +116,7 @@ export function RulesPanel({ config, onUpdateConfig }: RulesPanelProps) {
         </div>
 
         <div className="field">
-          <label htmlFor="large-file-strategy">大文件策略</label>
+          <label htmlFor="large-file-strategy">Large File Strategy</label>
           <select
             id="large-file-strategy"
             value={config.largeFileStrategy}
@@ -132,7 +132,7 @@ export function RulesPanel({ config, onUpdateConfig }: RulesPanelProps) {
         </div>
 
         <div className="field">
-          <label htmlFor="output-format">输出格式</label>
+          <label htmlFor="output-format">Output Format</label>
           <select
             id="output-format"
             value={config.outputFormat}

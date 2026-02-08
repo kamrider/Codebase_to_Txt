@@ -19,7 +19,7 @@ export interface TreeNode {
   path: string;
   name: string;
   isDir: boolean;
-  childrenCount: number;
+  childrenCount: number | null;
   children: TreeNode[];
 }
 

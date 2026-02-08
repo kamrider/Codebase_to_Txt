@@ -1,13 +1,16 @@
-import type { SelectionSummary, TreeNode } from "../../../shared/types/export";
+﻿import type { SelectionSummary, TreeNode } from "../../../shared/types/export";
 
 type DirectoryPanelProps = {
   rootPath: string;
   busy: boolean;
   tree: TreeNode | null;
   selectionSummary: SelectionSummary | null;
+  expandedPaths: Set<string>;
+  loadingPaths: Set<string>;
   onRootPathChange: (nextPath: string) => void;
   onScan: () => Promise<void>;
   onEvaluate: () => Promise<void>;
+  onToggleNode: (node: TreeNode) => Promise<void>;
 };
 
 export function DirectoryPanel({
@@ -15,54 +18,62 @@ export function DirectoryPanel({
   busy,
   tree,
   selectionSummary,
+  expandedPaths,
+  loadingPaths,
   onRootPathChange,
   onScan,
   onEvaluate,
+  onToggleNode,
 }: DirectoryPanelProps) {
   return (
     <section className="panel">
       <div className="panel-header">
-        <h2>目录扫描与结构</h2>
+        <h2>Directory Scan</h2>
       </div>
       <div className="panel-body">
         <div className="field">
-          <label htmlFor="root-path">根目录路径</label>
+          <label htmlFor="root-path">Root Path</label>
           <input
             id="root-path"
             value={rootPath}
             onChange={(event) => onRootPathChange(event.currentTarget.value)}
-            placeholder="例如 D:/github_projects"
+            placeholder="Example: D:/github_projects/Codebase_to_Txt"
           />
         </div>
         <div className="actions">
           <button className="btn primary" onClick={() => void onScan()} disabled={busy}>
-            扫描目录（占位）
+            Scan
           </button>
           <button className="btn" onClick={() => void onEvaluate()} disabled={busy}>
-            评估选择（占位）
+            Evaluate
           </button>
         </div>
 
         <div className="status-card">
-          <h3>选择统计</h3>
+          <h3>Selection Summary</h3>
           {selectionSummary ? (
             <>
-              <p>包含文件: {selectionSummary.includedFiles}</p>
-              <p>排除文件: {selectionSummary.excludedFiles}</p>
-              <p className="meta">提示: {selectionSummary.warnings.join(" | ")}</p>
+              <p>Included files: {selectionSummary.includedFiles}</p>
+              <p>Excluded files: {selectionSummary.excludedFiles}</p>
+              <p className="meta">Warnings: {selectionSummary.warnings.join(" | ") || "None"}</p>
             </>
           ) : (
-            <p className="meta">尚未评估，点击“评估选择”查看占位结果。</p>
+            <p className="meta">No evaluation yet.</p>
           )}
         </div>
 
         <div className="tree-box">
           {tree ? (
             <ul className="tree-list">
-              <TreeNodeLine node={tree} />
+              <TreeNodeLine
+                node={tree}
+                expandedPaths={expandedPaths}
+                loadingPaths={loadingPaths}
+                onToggleNode={onToggleNode}
+              />
             </ul>
           ) : (
-            <p className="meta">暂无目录树，先执行扫描。</p>
+            <p className="meta">No tree data yet. Run scan first.</p>
           )}
         </div>
       </div>
@@ -70,18 +81,41 @@ export function DirectoryPanel({
   );
 }
 
-type TreeViewProps = {
+type TreeNodeLineProps = {
   node: TreeNode;
+  expandedPaths: Set<string>;
+  loadingPaths: Set<string>;
+  onToggleNode: (node: TreeNode) => Promise<void>;
 };
 
-function TreeNodeLine({ node }: TreeViewProps) {
+function TreeNodeLine({
+  node,
+  expandedPaths,
+  loadingPaths,
+  onToggleNode,
+}: TreeNodeLineProps) {
+  const isExpanded = expandedPaths.has(node.path);
+  const isLoading = loadingPaths.has(node.path);
+  const canExpand = node.isDir && (node.childrenCount === null || node.childrenCount > 0);
+
   return (
     <li className="tree-item">
+      {canExpand ? (
+        <button className="btn" onClick={() => void onToggleNode(node)} disabled={isLoading}>
+          {isLoading ? "Loading..." : isExpanded ? "Collapse" : "Expand"}
+        </button>
+      ) : null}{" "}
       [{node.isDir ? "DIR" : "FILE"}] {node.name || node.path}
-      {node.children.length > 0 ? (
+      {isExpanded && node.children.length > 0 ? (
         <ul className="tree-list">
           {node.children.map((childNode) => (
-            <TreeNodeLine key={childNode.path} node={childNode} />
+            <TreeNodeLine
+              key={childNode.path}
+              node={childNode}
+              expandedPaths={expandedPaths}
+              loadingPaths={loadingPaths}
+              onToggleNode={onToggleNode}
+            />
           ))}
         </ul>
       ) : null}

@@ -1,4 +1,4 @@
-import type {
+﻿import type {
   ExportResult,
   PreviewMeta,
   SelectionSummary,
@@ -30,11 +30,11 @@ export function ExportPanel({
   return (
     <section className="panel">
       <div className="panel-header">
-        <h2>预览与导出</h2>
+        <h2>Preview and Export</h2>
       </div>
       <div className="panel-body">
         <div className="field">
-          <label htmlFor="output-path">输出文件</label>
+          <label htmlFor="output-path">Output File</label>
           <input
             id="output-path"
             value={outputPath}
@@ -45,51 +45,51 @@ export function ExportPanel({
 
         <div className="actions">
           <button className="btn" onClick={() => void onPreview()} disabled={busy}>
-            预览导出（占位）
+            Preview
           </button>
           <button className="btn primary" onClick={() => void onExport()} disabled={busy}>
-            执行导出（占位）
+            Export
           </button>
         </div>
 
         <div className="status-card">
-          <h3>预览统计</h3>
+          <h3>Preview Stats</h3>
           {preview ? (
             <>
-              <p>包含文件: {preview.includedFiles}</p>
-              <p>估算字节: {preview.estimatedBytes}</p>
-              <p>估算 Token: {preview.estimatedTokens ?? "V1.1 规划中"}</p>
-              <p className="meta">提示: {preview.warnings.join(" | ")}</p>
+              <p>Included files: {preview.includedFiles}</p>
+              <p>Estimated bytes: {preview.estimatedBytes}</p>
+              <p>Estimated tokens: {preview.estimatedTokens ?? "Planned in v1.1"}</p>
+              <p className="meta">Warnings: {preview.warnings.join(" | ") || "None"}</p>
             </>
           ) : (
-            <p className="meta">尚未预览。</p>
+            <p className="meta">No preview yet.</p>
           )}
         </div>
 
         <div className="status-card">
-          <h3>导出结果</h3>
+          <h3>Export Result</h3>
           {exportResult ? (
             <>
-              <p>输出路径: {exportResult.outputPath}</p>
-              <p>导出文件数: {exportResult.exportedFiles}</p>
-              <p>跳过文件数: {exportResult.skippedFiles}</p>
-              <p>写入字节: {exportResult.totalBytesWritten}</p>
-              <p className="meta">备注: {exportResult.notes.join(" | ")}</p>
+              <p>Output path: {exportResult.outputPath}</p>
+              <p>Exported files: {exportResult.exportedFiles}</p>
+              <p>Skipped files: {exportResult.skippedFiles}</p>
+              <p>Total bytes written: {exportResult.totalBytesWritten}</p>
+              <p className="meta">Notes: {exportResult.notes.join(" | ") || "None"}</p>
             </>
           ) : (
-            <p className="meta">尚未导出。</p>
+            <p className="meta">No export yet.</p>
           )}
         </div>
 
         <div className="status-card">
-          <h3>当前选择摘要</h3>
+          <h3>Current Selection</h3>
           {selectionSummary ? (
             <>
-              <p>包含: {selectionSummary.includedFiles}</p>
-              <p>排除: {selectionSummary.excludedFiles}</p>
+              <p>Included: {selectionSummary.includedFiles}</p>
+              <p>Excluded: {selectionSummary.excludedFiles}</p>
             </>
           ) : (
-            <p className="meta">尚未评估。</p>
+            <p className="meta">No evaluation yet.</p>
           )}
         </div>
 

@@ -11,6 +11,13 @@ export async function scanTree(rootPath: string): Promise<TreeNode> {
   return invoke<TreeNode>("scan_tree", { rootPath });
 }
 
+export async function scanChildren(
+  rootPath: string,
+  dirPath: string,
+): Promise<TreeNode[]> {
+  return invoke<TreeNode[]>("scan_children", { rootPath, dirPath });
+}
+
 export async function evaluateSelection(
   config: ExportConfig,
 ): Promise<SelectionSummary> {
