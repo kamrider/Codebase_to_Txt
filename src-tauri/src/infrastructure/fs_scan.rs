@@ -1,6 +1,7 @@
 use std::fs;
 use std::path::{Path, PathBuf};
 
+use crate::infrastructure::errors::read_error;
 use crate::infrastructure::sorting::compare_entries;
 use crate::models::{ScanLimits, TreeNode};
 
@@ -18,12 +19,12 @@ pub fn scan_single_level(
     let mut entries: Vec<(PathBuf, bool)> = Vec::new();
     let mut warnings = Vec::new();
 
-    let reader = fs::read_dir(dir).map_err(|e| format!("Failed to read directory: {e}"))?;
+    let reader = fs::read_dir(dir).map_err(|e| read_error("Failed to read directory", e))?;
     for item in reader {
-        let item = item.map_err(|e| format!("Failed to read directory entry: {e}"))?;
+        let item = item.map_err(|e| read_error("Failed to read directory entry", e))?;
         let file_type = item
             .file_type()
-            .map_err(|e| format!("Failed to read file type: {e}"))?;
+            .map_err(|e| read_error("Failed to read file type", e))?;
         entries.push((item.path(), file_type.is_dir()));
         if entries.len() >= limits.max_files {
             warnings.push(format!(
@@ -40,7 +41,7 @@ pub fn scan_single_level(
     for (entry_path, is_dir) in entries {
         let rel = entry_path
             .strip_prefix(root)
-            .map_err(|_| "Failed to derive relative path".to_string())?;
+            .map_err(|_| read_error("Failed to derive relative path", "path not under root"))?;
         let rel_text = rel.to_string_lossy().replace('\\', "/");
         let name = entry_path
             .file_name()

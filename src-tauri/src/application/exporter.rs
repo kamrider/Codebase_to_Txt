@@ -6,6 +6,10 @@ use std::path::{Path, PathBuf};
 use content_inspector::inspect;
 
 use crate::application::selection::collect_selected_files;
+use crate::infrastructure::errors::{
+    coded, read_error, write_error, E_IO_WRITE, E_OUTPUT_EXISTS, E_OUTPUT_IS_DIR,
+    E_OUTPUT_REQUIRED,
+};
 use crate::models::{
     ExportConfig, ExportResult, LargeFileStrategy, PreviewMeta, ScanLimits, SelectionSummary,
 };
@@ -57,14 +61,14 @@ pub fn run_export(
 
     let parent = output_abs
         .parent()
-        .ok_or_else(|| "outputPath must include a parent directory".to_string())?;
-    fs::create_dir_all(parent).map_err(|e| format!("Failed to create output directory: {e}"))?;
+        .ok_or_else(|| coded(E_OUTPUT_IS_DIR, "outputPath must include a parent directory"))?;
+    fs::create_dir_all(parent).map_err(|e| write_error("Failed to create output directory", e))?;
 
     let file = OpenOptions::new()
         .create_new(true)
         .write(true)
         .open(&output_abs)
-        .map_err(|e| format!("Failed to create output file: {e}"))?;
+        .map_err(|e| write_error("Failed to create output file", e))?;
 
     let mut writer = BufWriter::new(file);
     let mut total_written = 0u64;
@@ -92,7 +96,7 @@ pub fn run_export(
         let mut probe = [0u8; 1024];
         let read_probe = file_handle
             .read(&mut probe)
-            .map_err(|e| format!("Failed to inspect file '{}': {e}", selected.rel_path))?;
+            .map_err(|e| read_error(&format!("Failed to inspect file '{}'", selected.rel_path), e))?;
         if inspect(&probe[..read_probe]).is_binary() {
             skipped_files += 1;
             notes.push(format!("Skipped '{}': binary file", selected.rel_path));
@@ -101,7 +105,7 @@ pub fn run_export(
 
         file_handle
             .rewind()
-            .map_err(|e| format!("Failed to rewind file '{}': {e}", selected.rel_path))?;
+            .map_err(|e| read_error(&format!("Failed to rewind file '{}'", selected.rel_path), e))?;
 
         if matches!(config.large_file_strategy, LargeFileStrategy::Skip) && selected.size > max_bytes {
             skipped_files += 1;
@@ -125,7 +129,12 @@ pub fn run_export(
                 Some(max_bytes),
                 &mut total_written,
             )
-            .map_err(|e| format!("Failed to stream file '{}': {e}", selected.rel_path))?;
+            .map_err(|e| {
+                coded(
+                    E_IO_WRITE,
+                    format!("Failed to stream file '{}': {e}", selected.rel_path),
+                )
+            })?;
             write_newline(&mut writer, &mut total_written)?;
             write_line(
                 &mut writer,
@@ -138,7 +147,12 @@ pub fn run_export(
             ));
         } else {
             write_file_content_streaming(&mut writer, &mut file_handle, None, &mut total_written)
-                .map_err(|e| format!("Failed to stream file '{}': {e}", selected.rel_path))?;
+                .map_err(|e| {
+                    coded(
+                        E_IO_WRITE,
+                        format!("Failed to stream file '{}': {e}", selected.rel_path),
+                    )
+                })?;
             write_newline(&mut writer, &mut total_written)?;
         }
 
@@ -153,7 +167,7 @@ pub fn run_export(
 
     writer
         .flush()
-        .map_err(|e| format!("Failed to flush output file: {e}"))?;
+        .map_err(|e| write_error("Failed to flush output file", e))?;
 
     Ok(ExportResult {
         output_path: output_abs.to_string_lossy().replace('\\', "/"),
@@ -167,17 +181,26 @@ pub fn run_export(
 fn prepare_output_path(output_path: &str) -> Result<PathBuf, String> {
     let trimmed = output_path.trim();
     if trimmed.is_empty() {
-        return Err("outputPath is required".to_string());
+        return Err(coded(E_OUTPUT_REQUIRED, "outputPath is required"));
     }
     let candidate = Path::new(trimmed);
     if candidate.file_name().is_none() {
-        return Err("outputPath must be a file path, not a directory".to_string());
+        return Err(coded(
+            E_OUTPUT_IS_DIR,
+            "outputPath must be a file path, not a directory",
+        ));
     }
     if candidate.exists() {
         if candidate.is_dir() {
-            return Err("outputPath must be a file path, not a directory".to_string());
+            return Err(coded(
+                E_OUTPUT_IS_DIR,
+                "outputPath must be a file path, not a directory",
+            ));
         }
-        return Err("outputPath already exists; overwrite is disabled by default".to_string());
+        return Err(coded(
+            E_OUTPUT_EXISTS,
+            "outputPath already exists; overwrite is disabled by default",
+        ));
     }
     Ok(candidate.to_path_buf())
 }
@@ -257,7 +280,7 @@ fn write_file_content_streaming(
 
         let read_len = file_handle
             .read(&mut raw_buffer[..to_read])
-            .map_err(|e| format!("Failed to read file: {e}"))?;
+            .map_err(|e| read_error("Failed to read file", e))?;
         if read_len == 0 {
             break;
         }
@@ -359,7 +382,7 @@ fn write_utf8_lossy_raw(
     let content = String::from_utf8_lossy(bytes);
     writer
         .write_all(content.as_bytes())
-        .map_err(|e| format!("Write failed: {e}"))?;
+        .map_err(|e| write_error("Write failed", e))?;
     *total_written = total_written.saturating_add(content.len() as u64);
     Ok(())
 }
@@ -367,7 +390,7 @@ fn write_utf8_lossy_raw(
 fn write_newline(writer: &mut BufWriter<File>, total_written: &mut u64) -> Result<(), String> {
     writer
         .write_all(b"\n")
-        .map_err(|e| format!("Write failed: {e}"))?;
+        .map_err(|e| write_error("Write failed", e))?;
     *total_written = total_written.saturating_add(1);
     Ok(())
 }
@@ -375,7 +398,7 @@ fn write_newline(writer: &mut BufWriter<File>, total_written: &mut u64) -> Resul
 fn write_line(writer: &mut BufWriter<File>, line: &str, total_written: &mut u64) -> Result<(), String> {
     writer
         .write_all(line.as_bytes())
-        .map_err(|e| format!("Write failed: {e}"))?;
+        .map_err(|e| write_error("Write failed", e))?;
     *total_written = total_written.saturating_add(line.len() as u64);
     write_newline(writer, total_written)
 }

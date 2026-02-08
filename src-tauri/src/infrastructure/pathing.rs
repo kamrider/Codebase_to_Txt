@@ -1,20 +1,25 @@
 use std::fs;
 use std::path::{Path, PathBuf};
 
+use crate::infrastructure::errors::{
+    coded, read_error, E_PATH_OUTSIDE_ROOT, E_ROOT_INVALID, E_ROOT_NOT_DIR, E_ROOT_REQUIRED,
+};
+
 pub fn canonicalize_dir(path: &str) -> Result<PathBuf, String> {
     let raw = path.trim();
     if raw.is_empty() {
-        return Err("rootPath is required".to_string());
+        return Err(coded(E_ROOT_REQUIRED, "rootPath is required"));
     }
-    let canonical = fs::canonicalize(raw).map_err(|e| format!("Invalid rootPath: {e}"))?;
+    let canonical =
+        fs::canonicalize(raw).map_err(|e| coded(E_ROOT_INVALID, format!("Invalid rootPath: {e}")))?;
     if !canonical.is_dir() {
-        return Err("rootPath must be a directory".to_string());
+        return Err(coded(E_ROOT_NOT_DIR, "rootPath must be a directory"));
     }
     Ok(canonical)
 }
 
 pub fn canonicalize_existing(path: &Path) -> Result<PathBuf, String> {
-    fs::canonicalize(path).map_err(|e| format!("Failed to canonicalize path: {e}"))
+    fs::canonicalize(path).map_err(|e| read_error("Failed to canonicalize path", e))
 }
 
 pub fn ensure_under_root(root: &Path, candidate: &Path) -> Result<PathBuf, String> {
@@ -22,13 +27,13 @@ pub fn ensure_under_root(root: &Path, candidate: &Path) -> Result<PathBuf, Strin
     if canonical.starts_with(root) {
         return Ok(canonical);
     }
-    Err("Path is outside of rootPath".to_string())
+    Err(coded(E_PATH_OUTSIDE_ROOT, "Path is outside of rootPath"))
 }
 
 pub fn relative_unix_path(root: &Path, abs: &Path) -> Result<String, String> {
     let rel = abs
         .strip_prefix(root)
-        .map_err(|_| "Failed to compute relative path".to_string())?;
+        .map_err(|_| coded(E_PATH_OUTSIDE_ROOT, "Path is outside of rootPath"))?;
     let text = rel
         .to_string_lossy()
         .replace('\\', "/")
@@ -50,13 +55,15 @@ mod tests {
 
     use tempfile::tempdir;
 
+    use crate::infrastructure::errors::{E_PATH_OUTSIDE_ROOT, E_ROOT_INVALID, E_ROOT_REQUIRED};
+
     use super::{canonicalize_dir, ensure_under_root};
 
     #[test]
     fn canonicalize_dir_rejects_empty_root_path() {
         let result = canonicalize_dir("   ");
         assert!(result.is_err());
-        assert!(result.err().unwrap().contains("rootPath is required"));
+        assert!(result.err().unwrap().contains(E_ROOT_REQUIRED));
     }
 
     #[test]
@@ -65,7 +72,7 @@ mod tests {
         let missing = dir.path().join("missing");
         let result = canonicalize_dir(missing.to_string_lossy().as_ref());
         assert!(result.is_err());
-        assert!(result.err().unwrap().contains("Invalid rootPath"));
+        assert!(result.err().unwrap().contains(E_ROOT_INVALID));
     }
 
     #[test]
@@ -77,6 +84,6 @@ mod tests {
 
         let result = ensure_under_root(root.path(), &outside);
         assert!(result.is_err());
-        assert_eq!(result.err().unwrap(), "Path is outside of rootPath");
+        assert!(result.err().unwrap().contains(E_PATH_OUTSIDE_ROOT));
     }
 }

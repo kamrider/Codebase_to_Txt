@@ -1,6 +1,7 @@
 use std::path::{Path, PathBuf};
 
 use crate::infrastructure::fs_scan::{scan_single_level, ScanBatch};
+use crate::infrastructure::errors::{coded, E_DIRPATH_NOT_DIR, E_PATH_OUTSIDE_ROOT};
 use crate::infrastructure::pathing::{canonicalize_dir, ensure_under_root, file_name_or_fallback};
 use crate::models::{ScanLimits, TreeNode};
 
@@ -51,7 +52,7 @@ fn resolve_dir_under_root(root: &Path, dir_path: &str) -> Result<PathBuf, String
     };
 
     if !canonical.is_dir() {
-        return Err("dirPath must be a directory".to_string());
+        return Err(coded(E_DIRPATH_NOT_DIR, "dirPath must be a directory"));
     }
 
     Ok(canonical)
@@ -60,7 +61,7 @@ fn resolve_dir_under_root(root: &Path, dir_path: &str) -> Result<PathBuf, String
 fn depth_from_root(root: &Path, target: &Path) -> Result<usize, String> {
     let rel = target
         .strip_prefix(root)
-        .map_err(|_| "Path is outside of rootPath".to_string())?;
+        .map_err(|_| coded(E_PATH_OUTSIDE_ROOT, "Path is outside of rootPath"))?;
     Ok(rel.components().count())
 }
 
@@ -70,6 +71,7 @@ mod tests {
 
     use tempfile::tempdir;
 
+    use crate::infrastructure::errors::{E_DIRPATH_NOT_DIR, E_PATH_OUTSIDE_ROOT};
     use crate::models::ScanLimits;
 
     use super::{scan_children, scan_root};
@@ -105,7 +107,7 @@ mod tests {
         );
 
         assert!(result.is_err());
-        assert_eq!(result.err().unwrap(), "Path is outside of rootPath");
+        assert!(result.err().unwrap().contains(E_PATH_OUTSIDE_ROOT));
     }
 
     #[test]
@@ -122,6 +124,6 @@ mod tests {
         );
 
         assert!(result.is_err());
-        assert_eq!(result.err().unwrap(), "dirPath must be a directory");
+        assert!(result.err().unwrap().contains(E_DIRPATH_NOT_DIR));
     }
 }

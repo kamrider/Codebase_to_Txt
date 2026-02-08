@@ -40,7 +40,7 @@ export function WorkbenchPage() {
       return await action();
     } catch (error) {
       const text = error instanceof Error ? error.message : String(error);
-      setErrorMessage(text);
+      setErrorMessage(formatBackendError(text));
       return null;
     } finally {
       setPendingAction(null);
@@ -110,7 +110,7 @@ export function WorkbenchPage() {
       });
     } catch (error) {
       const text = error instanceof Error ? error.message : String(error);
-      setErrorMessage(text);
+      setErrorMessage(formatBackendError(text));
     } finally {
       setLoadingPaths((previous) => {
         const next = new Set(previous);
@@ -205,6 +205,37 @@ function cycleManualState(state: ManualSelectionState): ManualSelectionState {
   }
   return "inherit";
 }
+
+function formatBackendError(raw: string): string {
+  const parsed = parseCodedError(raw);
+  if (!parsed) {
+    return raw;
+  }
+  const friendly = ERROR_CODE_MESSAGES[parsed.code] ?? parsed.message ?? "Operation failed.";
+  return `${friendly} [debug: ${raw}]`;
+}
+
+function parseCodedError(raw: string): { code: string; message: string } | null {
+  const match = raw.trim().match(/^\[(E_[A-Z_]+)\]\s*(.*)$/);
+  if (!match) {
+    return null;
+  }
+  return { code: match[1], message: match[2] ?? "" };
+}
+
+const ERROR_CODE_MESSAGES: Record<string, string> = {
+  E_ROOT_REQUIRED: "Root path is required.",
+  E_ROOT_INVALID: "Root path does not exist or cannot be resolved.",
+  E_ROOT_NOT_DIR: "Root path must be a directory.",
+  E_PATH_OUTSIDE_ROOT: "The requested path is outside the selected root.",
+  E_DIRPATH_NOT_DIR: "The requested dirPath is not a directory.",
+  E_OUTPUT_REQUIRED: "Output path is required.",
+  E_OUTPUT_IS_DIR: "Output path must be a file path, not a directory.",
+  E_OUTPUT_EXISTS: "Output file already exists. Overwrite is disabled by default.",
+  E_IO_READ: "Read failed while scanning or exporting files.",
+  E_IO_WRITE: "Write failed while creating export output.",
+  E_RULE_INVALID_GLOB: "One or more glob rules are invalid.",
+};
 
 function patchTreeByPath(
   node: TreeNode,

@@ -6,6 +6,7 @@ use ignore::gitignore::{Gitignore, GitignoreBuilder};
 use ignore::Match;
 use walkdir::WalkDir;
 
+use crate::infrastructure::errors::{coded, E_RULE_INVALID_GLOB};
 use crate::models::{ExportConfig, ManualSelectionState};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -177,12 +178,13 @@ fn compile_globset(patterns: &[String]) -> Result<Option<GlobSet>, String> {
     }
     let mut builder = GlobSetBuilder::new();
     for pattern in patterns {
-        let glob = Glob::new(pattern).map_err(|e| format!("Invalid glob '{pattern}': {e}"))?;
+        let glob = Glob::new(pattern)
+            .map_err(|e| coded(E_RULE_INVALID_GLOB, format!("Invalid glob '{pattern}': {e}")))?;
         builder.add(glob);
     }
     let set = builder
         .build()
-        .map_err(|e| format!("Failed to build glob matcher: {e}"))?;
+        .map_err(|e| coded(E_RULE_INVALID_GLOB, format!("Failed to build glob matcher: {e}")))?;
     Ok(Some(set))
 }
 
