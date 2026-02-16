@@ -62,7 +62,7 @@ export function WorkbenchPage() {
   };
 
   const handleScan = async () => {
-    const result = await runAction("scan", async () => scanTree(config.rootPath));
+    const result = await runAction("scan", async () => scanTree(config.rootPath, config.useGitignore));
     if (result) {
       setTree(result);
       setExpandedPaths(new Set(["."]));
@@ -92,7 +92,7 @@ export function WorkbenchPage() {
 
     setLoadingPaths((previous) => new Set(previous).add(node.path));
     try {
-      const children = await scanChildren(config.rootPath, node.path);
+      const children = await scanChildren(config.rootPath, node.path, config.useGitignore);
       setTree((previous) => {
         if (!previous) {
           return previous;
@@ -124,32 +124,19 @@ export function WorkbenchPage() {
 
   const handleSyncManualSelections = (
     checkedPaths: string[],
-    changedPath: string,
-    changedChecked: boolean,
+    _changedPath: string,
+    _changedChecked: boolean,
   ) => {
-    if (changedPath === ".") {
-      return;
-    }
-
     setConfig((previous) => {
       const loadedPaths = tree ? collectTreePaths(tree) : new Set<string>();
       const nextSelections = { ...previous.manualSelections };
+      const checkedSet = new Set(checkedPaths);
 
       for (const path of loadedPaths) {
-        if (nextSelections[path] === "include") {
-          delete nextSelections[path];
-        }
-      }
-
-      for (const path of checkedPaths) {
         if (path === ".") {
           continue;
         }
-        nextSelections[path] = "include";
-      }
-
-      if (!changedChecked) {
-        nextSelections[changedPath] = "exclude";
+        nextSelections[path] = checkedSet.has(path) ? "include" : "exclude";
       }
 
       return { ...previous, manualSelections: nextSelections };

@@ -72,6 +72,7 @@ export function DirectoryPanel({
     const toTreeDataNode = (node: TreeNode): UITreeNode => {
       const isLoading = loadingPaths.has(node.path);
       const isLeaf = !node.isDir || node.childrenCount === 0;
+      const gitignoredHint = node.ignoredByGitignore ? " (gitignored)" : "";
 
       return {
         key: node.path,
@@ -81,6 +82,7 @@ export function DirectoryPanel({
           <div className="tree-node-line">
             <span className="tree-node-label">
               [{node.isDir ? "DIR" : "FILE"}] {node.name || node.path}
+              {gitignoredHint}
               {isLoading ? " (Loading...)" : ""}
             </span>
           </div>
@@ -93,11 +95,40 @@ export function DirectoryPanel({
   }, [tree, loadingPaths]);
 
   const checkedKeys = useMemo(
-    () =>
-      Object.entries(manualSelections)
-        .filter(([path, state]) => path !== "." && state === "include")
-        .map(([path]) => path),
-    [manualSelections],
+    () => {
+      if (!tree) {
+        return [];
+      }
+
+      const keys: string[] = [];
+      const walk = (node: TreeNode, inheritedOverride: ManualSelectionState | null) => {
+        const ownManualState = manualSelections[node.path];
+        const nextOverride =
+          ownManualState === "include" || ownManualState === "exclude"
+            ? ownManualState
+            : inheritedOverride;
+        const defaultChecked = node.path !== "." && !node.ignoredByGitignore;
+        const effectiveChecked =
+          nextOverride === "include"
+            ? true
+            : nextOverride === "exclude"
+              ? false
+              : defaultChecked;
+        const hasLoadedChildren = node.children.length > 0;
+
+        if (node.path !== "." && !hasLoadedChildren && effectiveChecked) {
+          keys.push(node.path);
+        }
+
+        for (const childNode of node.children) {
+          walk(childNode, nextOverride);
+        }
+      };
+
+      walk(tree, null);
+      return keys;
+    },
+    [tree, manualSelections],
   );
 
   return (

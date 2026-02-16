@@ -7,15 +7,16 @@ import type {
   TreeNode,
 } from "../types/export";
 
-export async function scanTree(rootPath: string): Promise<TreeNode> {
-  return invoke<TreeNode>("scan_tree", { rootPath });
+export async function scanTree(rootPath: string, useGitignore: boolean): Promise<TreeNode> {
+  return invoke<TreeNode>("scan_tree", { rootPath, useGitignore });
 }
 
 export async function scanChildren(
   rootPath: string,
   dirPath: string,
+  useGitignore: boolean,
 ): Promise<TreeNode[]> {
-  return invoke<TreeNode[]>("scan_children", { rootPath, dirPath });
+  return invoke<TreeNode[]>("scan_children", { rootPath, dirPath, useGitignore });
 }
 
 export async function evaluateSelection(

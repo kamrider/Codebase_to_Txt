@@ -47,6 +47,8 @@ pub struct TreeNode {
     pub name: String,
     pub is_dir: bool,
     pub children_count: Option<usize>,
+    #[serde(default)]
+    pub ignored_by_gitignore: bool,
     pub children: Vec<TreeNode>,
 }
 

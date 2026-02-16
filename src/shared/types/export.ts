@@ -20,6 +20,7 @@ export interface TreeNode {
   name: string;
   isDir: boolean;
   childrenCount: number | null;
+  ignoredByGitignore: boolean;
   children: TreeNode[];
 }
 

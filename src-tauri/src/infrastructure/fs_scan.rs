@@ -1,6 +1,9 @@
 use std::fs;
 use std::path::{Path, PathBuf};
 
+use ignore::gitignore::Gitignore;
+use ignore::Match;
+
 use crate::infrastructure::errors::read_error;
 use crate::infrastructure::sorting::compare_entries;
 use crate::models::{ScanLimits, TreeNode};
@@ -15,6 +18,7 @@ pub fn scan_single_level(
     root: &Path,
     dir: &Path,
     limits: &ScanLimits,
+    gitignore: Option<&Gitignore>,
 ) -> Result<ScanBatch, String> {
     let mut entries: Vec<(PathBuf, bool)> = Vec::new();
     let mut warnings = Vec::new();
@@ -39,6 +43,10 @@ pub fn scan_single_level(
 
     let mut nodes = Vec::with_capacity(entries.len());
     for (entry_path, is_dir) in entries {
+        let ignored_by_gitignore = matches!(
+            gitignore.map(|matcher| matcher.matched_path_or_any_parents(&entry_path, is_dir)),
+            Some(Match::Ignore(_))
+        );
         let rel = entry_path
             .strip_prefix(root)
             .map_err(|_| read_error("Failed to derive relative path", "path not under root"))?;
@@ -53,6 +61,7 @@ pub fn scan_single_level(
             name,
             is_dir,
             children_count: if is_dir { None } else { Some(0) },
+            ignored_by_gitignore,
             children: vec![],
         });
     }
