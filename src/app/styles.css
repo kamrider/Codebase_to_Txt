@@ -183,15 +183,27 @@ select {
   max-height: 280px;
 }
 
-.tree-list {
-  margin: 0;
-  padding-left: 1rem;
-  list-style: none;
+.directory-tree {
+  font-size: 0.85rem;
 }
 
-.tree-item {
-  font-size: 0.85rem;
-  margin: 0.15rem 0;
+.directory-tree .ant-tree-treenode {
+  align-items: flex-start;
+}
+
+.directory-tree .ant-tree-node-content-wrapper {
+  padding-inline: 0.2rem;
+}
+
+.tree-node-line {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  flex-wrap: wrap;
+}
+
+.tree-node-label {
+  line-height: 1.35;
 }
 
 .error {

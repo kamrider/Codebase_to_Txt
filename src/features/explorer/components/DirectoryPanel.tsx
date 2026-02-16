@@ -1,3 +1,5 @@
+import { useMemo, type ReactNode } from "react";
+import { Tree } from "antd";
 import type {
   ManualSelectionState,
   SelectionSummary,
@@ -16,7 +18,19 @@ type DirectoryPanelProps = {
   onScan: () => Promise<void>;
   onEvaluate: () => Promise<void>;
   onToggleNode: (node: TreeNode) => Promise<void>;
-  onCycleManualSelection: (path: string) => void;
+  onSyncManualSelections: (
+    checkedPaths: string[],
+    changedPath: string,
+    changedChecked: boolean,
+  ) => void;
+};
+
+type UITreeNode = {
+  key: string;
+  isLeaf?: boolean;
+  disableCheckbox?: boolean;
+  title: ReactNode;
+  children?: UITreeNode[];
 };
 
 export function DirectoryPanel({
@@ -31,8 +45,61 @@ export function DirectoryPanel({
   onScan,
   onEvaluate,
   onToggleNode,
-  onCycleManualSelection,
+  onSyncManualSelections,
 }: DirectoryPanelProps) {
+  const nodeLookup = useMemo(() => {
+    const lookup = new Map<string, TreeNode>();
+    if (!tree) {
+      return lookup;
+    }
+
+    const walk = (node: TreeNode) => {
+      lookup.set(node.path, node);
+      for (const childNode of node.children) {
+        walk(childNode);
+      }
+    };
+
+    walk(tree);
+    return lookup;
+  }, [tree]);
+
+  const treeData = useMemo<UITreeNode[]>(() => {
+    if (!tree) {
+      return [];
+    }
+
+    const toTreeDataNode = (node: TreeNode): UITreeNode => {
+      const isLoading = loadingPaths.has(node.path);
+      const isLeaf = !node.isDir || node.childrenCount === 0;
+
+      return {
+        key: node.path,
+        isLeaf,
+        disableCheckbox: node.path === ".",
+        title: (
+          <div className="tree-node-line">
+            <span className="tree-node-label">
+              [{node.isDir ? "DIR" : "FILE"}] {node.name || node.path}
+              {isLoading ? " (Loading...)" : ""}
+            </span>
+          </div>
+        ),
+        children: node.children.map(toTreeDataNode),
+      };
+    };
+
+    return [toTreeDataNode(tree)];
+  }, [tree, loadingPaths]);
+
+  const checkedKeys = useMemo(
+    () =>
+      Object.entries(manualSelections)
+        .filter(([path, state]) => path !== "." && state === "include")
+        .map(([path]) => path),
+    [manualSelections],
+  );
+
   return (
     <section className="panel">
       <div className="panel-header">
@@ -72,80 +139,34 @@ export function DirectoryPanel({
 
         <div className="tree-box">
           {tree ? (
-            <ul className="tree-list">
-              <TreeNodeLine
-                node={tree}
-                busy={busy}
-                expandedPaths={expandedPaths}
-                loadingPaths={loadingPaths}
-                manualSelections={manualSelections}
-                onToggleNode={onToggleNode}
-                onCycleManualSelection={onCycleManualSelection}
-              />
-            </ul>
+            <Tree
+              className="directory-tree"
+              treeData={treeData}
+              expandedKeys={Array.from(expandedPaths)}
+              checkedKeys={checkedKeys}
+              selectable={false}
+              checkable
+              showLine
+              onCheck={(nextCheckedKeys, info) => {
+                const checkedPaths = Array.isArray(nextCheckedKeys)
+                  ? nextCheckedKeys.map((item) => String(item))
+                  : nextCheckedKeys.checked.map((item) => String(item));
+                const changedPath = String(info.node.key);
+                onSyncManualSelections(checkedPaths, changedPath, info.checked);
+              }}
+              onExpand={(_, info) => {
+                const targetPath = String(info.node.key);
+                const targetNode = nodeLookup.get(targetPath);
+                if (targetNode) {
+                  void onToggleNode(targetNode);
+                }
+              }}
+            />
           ) : (
             <p className="meta">No tree data yet. Run scan first.</p>
           )}
         </div>
       </div>
     </section>
-  );
-}
-
-type TreeNodeLineProps = {
-  node: TreeNode;
-  busy: boolean;
-  expandedPaths: Set<string>;
-  loadingPaths: Set<string>;
-  manualSelections: Record<string, ManualSelectionState>;
-  onToggleNode: (node: TreeNode) => Promise<void>;
-  onCycleManualSelection: (path: string) => void;
-};
-
-function TreeNodeLine({
-  node,
-  busy,
-  expandedPaths,
-  loadingPaths,
-  manualSelections,
-  onToggleNode,
-  onCycleManualSelection,
-}: TreeNodeLineProps) {
-  const isExpanded = expandedPaths.has(node.path);
-  const isLoading = loadingPaths.has(node.path);
-  const canExpand = node.isDir && (node.childrenCount === null || node.childrenCount > 0);
-  const manualState = manualSelections[node.path] ?? "inherit";
-  const manualEditable = node.path !== ".";
-
-  return (
-    <li className="tree-item">
-      {canExpand ? (
-        <button className="btn" onClick={() => void onToggleNode(node)} disabled={isLoading}>
-          {isLoading ? "Loading..." : isExpanded ? "Collapse" : "Expand"}
-        </button>
-      ) : null}{" "}
-      {manualEditable ? (
-        <button className="btn" onClick={() => onCycleManualSelection(node.path)} disabled={busy}>
-          Rule: {manualState}
-        </button>
-      ) : null}{" "}
-      [{node.isDir ? "DIR" : "FILE"}] {node.name || node.path}
-      {isExpanded && node.children.length > 0 ? (
-        <ul className="tree-list">
-          {node.children.map((childNode) => (
-            <TreeNodeLine
-              key={childNode.path}
-              node={childNode}
-              busy={busy}
-              expandedPaths={expandedPaths}
-              loadingPaths={loadingPaths}
-              manualSelections={manualSelections}
-              onToggleNode={onToggleNode}
-              onCycleManualSelection={onCycleManualSelection}
-            />
-          ))}
-        </ul>
-      ) : null}
-    </li>
   );
 }

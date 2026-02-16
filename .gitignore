@@ -31,3 +31,7 @@ Debug/
 *.njsproj
 *.sln
 *.sw?
+
+# Local installer binaries (do not commit)
+rustup-init.exe
+vs_BuildTools.exe

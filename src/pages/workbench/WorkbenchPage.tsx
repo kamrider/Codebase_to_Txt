@@ -10,14 +10,7 @@ import {
   scanChildren,
   scanTree,
 } from "../../shared/api/tauriClient";
-import type {
-  ExportConfig,
-  ExportResult,
-  ManualSelectionState,
-  PreviewMeta,
-  SelectionSummary,
-  TreeNode,
-} from "../../shared/types/export";
+import type { ExportConfig, ExportResult, PreviewMeta, SelectionSummary, TreeNode } from "../../shared/types/export";
 import { defaultExportConfig } from "../../shared/types/export";
 
 export function WorkbenchPage() {
@@ -129,20 +122,34 @@ export function WorkbenchPage() {
     }
   };
 
-  const handleCycleManualSelection = (targetPath: string) => {
-    if (targetPath === ".") {
+  const handleSyncManualSelections = (
+    checkedPaths: string[],
+    changedPath: string,
+    changedChecked: boolean,
+  ) => {
+    if (changedPath === ".") {
       return;
     }
 
     setConfig((previous) => {
-      const current = previous.manualSelections[targetPath] ?? "inherit";
-      const next = cycleManualState(current);
+      const loadedPaths = tree ? collectTreePaths(tree) : new Set<string>();
       const nextSelections = { ...previous.manualSelections };
 
-      if (next === "inherit") {
-        delete nextSelections[targetPath];
-      } else {
-        nextSelections[targetPath] = next;
+      for (const path of loadedPaths) {
+        if (nextSelections[path] === "include") {
+          delete nextSelections[path];
+        }
+      }
+
+      for (const path of checkedPaths) {
+        if (path === ".") {
+          continue;
+        }
+        nextSelections[path] = "include";
+      }
+
+      if (!changedChecked) {
+        nextSelections[changedPath] = "exclude";
       }
 
       return { ...previous, manualSelections: nextSelections };
@@ -204,7 +211,7 @@ export function WorkbenchPage() {
         onScan={handleScan}
         onEvaluate={handleEvaluate}
         onToggleNode={handleToggleNode}
-        onCycleManualSelection={handleCycleManualSelection}
+        onSyncManualSelections={handleSyncManualSelections}
       />
       <RulesPanel config={config} onUpdateConfig={updateConfig} />
       <ExportPanel
@@ -221,16 +228,6 @@ export function WorkbenchPage() {
       />
     </main>
   );
-}
-
-function cycleManualState(state: ManualSelectionState): ManualSelectionState {
-  if (state === "inherit") {
-    return "include";
-  }
-  if (state === "include") {
-    return "exclude";
-  }
-  return "inherit";
 }
 
 function formatBackendError(raw: string): string {
@@ -311,4 +308,18 @@ function patchTreeByPath(
   }
 
   return { ...node, children: nextChildren };
+}
+
+function collectTreePaths(root: TreeNode): Set<string> {
+  const paths = new Set<string>();
+
+  const walk = (node: TreeNode) => {
+    paths.add(node.path);
+    for (const childNode of node.children) {
+      walk(childNode);
+    }
+  };
+
+  walk(root);
+  return paths;
 }
