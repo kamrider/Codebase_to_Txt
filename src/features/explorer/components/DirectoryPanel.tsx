@@ -1,5 +1,7 @@
 import { useMemo, type ReactNode } from "react";
+import { Icon } from "@iconify/react";
 import { Tree } from "antd";
+import { getIconForFile, getIconForFolder, getIconForOpenFolder } from "vscode-icons-js";
 import type {
   ManualSelectionState,
   SelectionSummary,
@@ -72,7 +74,8 @@ export function DirectoryPanel({
     const toTreeDataNode = (node: TreeNode): UITreeNode => {
       const isLoading = loadingPaths.has(node.path);
       const isLeaf = !node.isDir || node.childrenCount === 0;
-      const gitignoredHint = node.ignoredByGitignore ? " (gitignored)" : "";
+      const isExpanded = expandedPaths.has(node.path);
+      const iconName = getNodeIconName(node, isExpanded);
 
       return {
         key: node.path,
@@ -80,11 +83,12 @@ export function DirectoryPanel({
         disableCheckbox: node.path === ".",
         title: (
           <div className="tree-node-line">
-            <span className="tree-node-label">
-              [{node.isDir ? "DIR" : "FILE"}] {node.name || node.path}
-              {gitignoredHint}
+            <Icon icon={`vscode-icons:${iconName}`} className="tree-node-icon" />
+            <span className={`tree-node-label${node.ignoredByGitignore ? " is-gitignored" : ""}`}>
+              {node.name || node.path}
               {isLoading ? " (Loading...)" : ""}
             </span>
+            {node.ignoredByGitignore ? <span className="tree-node-meta">gitignored</span> : null}
           </div>
         ),
         children: node.children.map(toTreeDataNode),
@@ -92,7 +96,7 @@ export function DirectoryPanel({
     };
 
     return [toTreeDataNode(tree)];
-  }, [tree, loadingPaths]);
+  }, [tree, loadingPaths, expandedPaths]);
 
   const checkedKeys = useMemo(
     () => {
@@ -200,4 +204,31 @@ export function DirectoryPanel({
       </div>
     </section>
   );
+}
+
+const SPECIAL_FILE_ICONS: Record<string, string> = {
+  ".dockerignore": "file_type_docker.svg",
+  ".ignore": "file_type_git.svg",
+};
+
+const ICON_FALLBACKS: Record<string, string> = {
+  "file-type-makefile": "file-type-config",
+  "file-type-pdf": "file-type-pdf2",
+};
+
+function getNodeIconName(node: TreeNode, isExpanded: boolean): string {
+  if (node.isDir) {
+    const folderName = (node.name || node.path || "").toLowerCase();
+    const iconFileName = isExpanded ? getIconForOpenFolder(folderName) : getIconForFolder(folderName);
+    return toVscodeIconName(iconFileName);
+  }
+
+  const fileName = (node.name || node.path || "").toLowerCase();
+  const iconFileName = SPECIAL_FILE_ICONS[fileName] ?? getIconForFile(fileName);
+  return toVscodeIconName(iconFileName);
+}
+
+function toVscodeIconName(iconFileName: string): string {
+  const normalized = iconFileName.replace(/\.svg$/i, "").replace(/_/g, "-");
+  return ICON_FALLBACKS[normalized] ?? normalized;
 }

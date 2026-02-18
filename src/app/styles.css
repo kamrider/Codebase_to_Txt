@@ -202,8 +202,27 @@ select {
   flex-wrap: wrap;
 }
 
+.tree-node-icon {
+  width: 1rem;
+  height: 1rem;
+  flex: 0 0 auto;
+}
+
 .tree-node-label {
   line-height: 1.35;
+}
+
+.tree-node-label.is-gitignored {
+  color: var(--text-muted);
+}
+
+.tree-node-meta {
+  font-size: 0.72rem;
+  color: var(--text-muted);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  padding: 0.02rem 0.35rem;
+  background: #fff;
 }
 
 .error {

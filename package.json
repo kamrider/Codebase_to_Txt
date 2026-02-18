@@ -13,18 +13,21 @@
     "release:build:win": "npm run release:check && npm run tauri build -- --bundles msi nsis --ci --no-sign"
   },
   "dependencies": {
+    "@iconify-json/vscode-icons": "^1.2.43",
+    "@iconify/react": "^6.0.2",
+    "@tauri-apps/api": "^2",
+    "@tauri-apps/plugin-opener": "^2",
+    "antd": "^5.0.0",
     "react": "^19.1.0",
     "react-dom": "^19.1.0",
-    "antd": "^5.0.0",
-    "@tauri-apps/api": "^2",
-    "@tauri-apps/plugin-opener": "^2"
+    "vscode-icons-js": "^11.6.1"
   },
   "devDependencies": {
+    "@tauri-apps/cli": "^2",
     "@types/react": "^19.1.8",
     "@types/react-dom": "^19.1.6",
     "@vitejs/plugin-react": "^4.6.0",
     "typescript": "~5.8.3",
-    "vite": "^7.0.4",
-    "@tauri-apps/cli": "^2"
+    "vite": "^7.0.4"
   }
 }
