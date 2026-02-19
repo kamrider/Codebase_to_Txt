@@ -44,3 +44,18 @@ export async function pickExportPath(defaultPath?: string): Promise<string | nul
     },
   });
 }
+
+export async function pickRootDirectory(defaultPath?: string): Promise<string | null> {
+  const result = await invoke<string | string[] | null>("plugin:dialog|open", {
+    options: {
+      defaultPath: defaultPath?.trim() ? defaultPath.trim() : undefined,
+      directory: true,
+      multiple: false,
+    },
+  });
+
+  if (Array.isArray(result)) {
+    return result[0] ?? null;
+  }
+  return result;
+}

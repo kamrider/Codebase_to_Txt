@@ -17,6 +17,7 @@ type DirectoryPanelProps = {
   loadingPaths: Set<string>;
   manualSelections: Record<string, ManualSelectionState>;
   onRootPathChange: (nextPath: string) => void;
+  onPickRootPath: () => Promise<void>;
   onScan: () => Promise<void>;
   onEvaluate: () => Promise<void>;
   onToggleNode: (node: TreeNode) => Promise<void>;
@@ -44,6 +45,7 @@ export function DirectoryPanel({
   loadingPaths,
   manualSelections,
   onRootPathChange,
+  onPickRootPath,
   onScan,
   onEvaluate,
   onToggleNode,
@@ -149,6 +151,11 @@ export function DirectoryPanel({
             onChange={(event) => onRootPathChange(event.currentTarget.value)}
             placeholder="Example: D:/github_projects/Codebase_to_Txt"
           />
+          <div className="actions">
+            <button className="btn" onClick={() => void onPickRootPath()} disabled={busy}>
+              Choose Folder
+            </button>
+          </div>
         </div>
         <div className="actions">
           <button className="btn primary" onClick={() => void onScan()} disabled={busy}>

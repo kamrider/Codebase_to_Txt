@@ -4,6 +4,7 @@ import { ExportPanel } from "../../features/export/components/ExportPanel";
 import { RulesPanel } from "../../features/rules/components/RulesPanel";
 import {
   evaluateSelection,
+  pickRootDirectory,
   pickExportPath,
   previewExport,
   runExport,
@@ -14,12 +15,21 @@ import type { ExportConfig, ExportResult, PreviewMeta, SelectionSummary, TreeNod
 import { defaultExportConfig } from "../../shared/types/export";
 
 export function WorkbenchPage() {
-  const [config, setConfig] = useState<ExportConfig>(defaultExportConfig);
+  const [config, setConfig] = useState<ExportConfig>(() => {
+    const persistedRootPath = loadPersistedRootPath();
+    if (!persistedRootPath) {
+      return defaultExportConfig;
+    }
+    return {
+      ...defaultExportConfig,
+      rootPath: persistedRootPath,
+    };
+  });
   const [tree, setTree] = useState<TreeNode | null>(null);
   const [selectionSummary, setSelectionSummary] = useState<SelectionSummary | null>(null);
   const [preview, setPreview] = useState<PreviewMeta | null>(null);
   const [exportResult, setExportResult] = useState<ExportResult | null>(null);
-  const [outputPath, setOutputPath] = useState(() => buildDefaultOutputPath(""));
+  const [outputPath, setOutputPath] = useState(() => buildDefaultOutputPath(config.rootPath));
   const [pendingAction, setPendingAction] = useState<string | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [expandedPaths, setExpandedPaths] = useState<Set<string>>(new Set());
@@ -46,6 +56,7 @@ export function WorkbenchPage() {
   };
 
   const handleRootPathChange = (nextPath: string) => {
+    persistRootPath(nextPath);
     setConfig((previous) => ({
       ...previous,
       rootPath: nextPath,
@@ -59,6 +70,16 @@ export function WorkbenchPage() {
     setLoadingPaths(new Set());
     setErrorMessage(null);
     setOutputPath(buildDefaultOutputPath(nextPath));
+  };
+
+  const handlePickRootPath = async () => {
+    const pickedPath = await runAction("pick-root-path", async () => pickRootDirectory(config.rootPath));
+    if (pickedPath) {
+      const normalizedPath = pickedPath.replace(/\\/g, "/");
+      if (normalizedPath.trim()) {
+        handleRootPathChange(normalizedPath);
+      }
+    }
   };
 
   const handleScan = async () => {
@@ -195,6 +216,7 @@ export function WorkbenchPage() {
         loadingPaths={loadingPaths}
         manualSelections={config.manualSelections}
         onRootPathChange={handleRootPathChange}
+        onPickRootPath={handlePickRootPath}
         onScan={handleScan}
         onEvaluate={handleEvaluate}
         onToggleNode={handleToggleNode}
@@ -309,4 +331,31 @@ function collectTreePaths(root: TreeNode): Set<string> {
 
   walk(root);
   return paths;
+}
+
+const ROOT_PATH_STORAGE_KEY = "codebase_to_txt:last_root_path";
+
+function loadPersistedRootPath(): string {
+  try {
+    const stored = window.localStorage.getItem(ROOT_PATH_STORAGE_KEY);
+    if (!stored) {
+      return "";
+    }
+    return stored.trim().replace(/\\/g, "/");
+  } catch {
+    return "";
+  }
+}
+
+function persistRootPath(nextPath: string): void {
+  try {
+    const normalized = nextPath.trim().replace(/\\/g, "/");
+    if (!normalized) {
+      window.localStorage.removeItem(ROOT_PATH_STORAGE_KEY);
+      return;
+    }
+    window.localStorage.setItem(ROOT_PATH_STORAGE_KEY, normalized);
+  } catch {
+    // localStorage may be unavailable in rare host environments.
+  }
 }
