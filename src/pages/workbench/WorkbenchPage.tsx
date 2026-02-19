@@ -209,6 +209,7 @@ export function WorkbenchPage() {
     <main className="workbench">
       <DirectoryPanel
         rootPath={config.rootPath}
+        useGitignore={config.useGitignore}
         busy={busy}
         tree={tree}
         selectionSummary={selectionSummary}

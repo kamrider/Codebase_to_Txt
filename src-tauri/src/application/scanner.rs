@@ -8,13 +8,9 @@ use crate::infrastructure::errors::{coded, E_DIRPATH_NOT_DIR, E_PATH_OUTSIDE_ROO
 use crate::infrastructure::pathing::{canonicalize_dir, ensure_under_root, file_name_or_fallback};
 use crate::models::{ScanLimits, TreeNode};
 
-pub fn scan_root(root_path: &str, use_gitignore: bool, limits: &ScanLimits) -> Result<TreeNode, String> {
+pub fn scan_root(root_path: &str, _use_gitignore: bool, limits: &ScanLimits) -> Result<TreeNode, String> {
     let root = canonicalize_dir(root_path)?;
-    let gitignore = if use_gitignore {
-        build_gitignore_matcher(&root)
-    } else {
-        None
-    };
+    let gitignore = build_gitignore_matcher(&root);
     let children = scan_single_level(&root, &root, limits, gitignore.as_ref())?;
     let _scan_warnings = &children.warnings;
     let root_node = TreeNode {
@@ -31,16 +27,12 @@ pub fn scan_root(root_path: &str, use_gitignore: bool, limits: &ScanLimits) -> R
 pub fn scan_children(
     root_path: &str,
     dir_path: &str,
-    use_gitignore: bool,
+    _use_gitignore: bool,
     limits: &ScanLimits,
 ) -> Result<ScanBatch, String> {
     let root = canonicalize_dir(root_path)?;
     let dir_abs = resolve_dir_under_root(&root, dir_path)?;
-    let gitignore = if use_gitignore {
-        build_gitignore_matcher(&root)
-    } else {
-        None
-    };
+    let gitignore = build_gitignore_matcher(&root);
 
     let depth = depth_from_root(&root, &dir_abs)?;
     if depth >= limits.max_depth {
@@ -187,6 +179,23 @@ mod tests {
 
         assert!(ignored_file.ignored_by_gitignore);
         assert!(ignored_dir.ignored_by_gitignore);
+        assert!(!normal_file.ignored_by_gitignore);
+    }
+
+    #[test]
+    fn scan_root_marks_gitignored_entries_even_when_disabled() {
+        let root = tempdir().unwrap();
+        fs::write(root.path().join(".gitignore"), "ignored.txt\n").unwrap();
+        fs::write(root.path().join("ignored.txt"), "x").unwrap();
+        fs::write(root.path().join("normal.txt"), "y").unwrap();
+
+        let limits = ScanLimits::default();
+        let tree = scan_root(root.path().to_string_lossy().as_ref(), false, &limits).unwrap();
+
+        let ignored_file = tree.children.iter().find(|node| node.path == "ignored.txt").unwrap();
+        let normal_file = tree.children.iter().find(|node| node.path == "normal.txt").unwrap();
+
+        assert!(ignored_file.ignored_by_gitignore);
         assert!(!normal_file.ignored_by_gitignore);
     }
 }

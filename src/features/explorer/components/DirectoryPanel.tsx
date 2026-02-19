@@ -10,6 +10,7 @@ import type {
 
 type DirectoryPanelProps = {
   rootPath: string;
+  useGitignore: boolean;
   busy: boolean;
   tree: TreeNode | null;
   selectionSummary: SelectionSummary | null;
@@ -38,6 +39,7 @@ type UITreeNode = {
 
 export function DirectoryPanel({
   rootPath,
+  useGitignore,
   busy,
   tree,
   selectionSummary,
@@ -113,7 +115,8 @@ export function DirectoryPanel({
           ownManualState === "include" || ownManualState === "exclude"
             ? ownManualState
             : inheritedOverride;
-        const defaultChecked = node.path !== "." && !node.ignoredByGitignore;
+        const defaultChecked =
+          node.path !== "." && (!useGitignore || !node.ignoredByGitignore);
         const effectiveChecked =
           nextOverride === "include"
             ? true
@@ -134,7 +137,7 @@ export function DirectoryPanel({
       walk(tree, null);
       return keys;
     },
-    [tree, manualSelections],
+    [tree, manualSelections, useGitignore],
   );
 
   return (
