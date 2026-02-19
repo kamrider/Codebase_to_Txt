@@ -11,6 +11,8 @@ pub struct ExportConfig {
     pub exclude_globs: Vec<String>,
     pub include_extensions: Vec<String>,
     pub exclude_extensions: Vec<String>,
+    #[serde(default)]
+    pub structure_only: bool,
     #[serde(rename = "maxFileSizeKB", alias = "maxFileSizeKb")]
     pub max_file_size_kb: u64,
     pub large_file_strategy: LargeFileStrategy,

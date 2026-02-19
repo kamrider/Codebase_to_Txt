@@ -26,6 +26,15 @@ pub fn evaluate_selection(config: &ExportConfig, limits: &ScanLimits) -> Result<
 
 pub fn preview_export(config: &ExportConfig, limits: &ScanLimits) -> Result<PreviewMeta, String> {
     let selection = collect_selected_files(config, limits)?;
+    if config.structure_only {
+        return Ok(PreviewMeta {
+            included_files: selection.included_files,
+            estimated_bytes: estimate_structure_bytes(&selection.files),
+            estimated_tokens: None,
+            warnings: selection.warnings,
+        });
+    }
+
     let max_bytes = config.max_file_size_kb.saturating_mul(1024);
 
     let mut estimated_bytes = 0u64;
@@ -56,6 +65,7 @@ pub fn run_export(
     limits: &ScanLimits,
 ) -> Result<ExportResult, String> {
     let selection = collect_selected_files(config, limits)?;
+    let listed_files = selection.files.len();
     let output_abs = prepare_output_path(output_path)?;
     let output_preexisted = output_abs.is_file();
 
@@ -90,6 +100,21 @@ pub fn run_export(
         write_line(&mut writer, &line, &mut total_written)?;
     }
     write_line(&mut writer, "", &mut total_written)?;
+
+    if config.structure_only {
+        notes.push("Structure-only export: skipped file contents.".to_string());
+        writer
+            .flush()
+            .map_err(|e| write_error("Failed to flush output file", e))?;
+
+        return Ok(ExportResult {
+            output_path: output_abs.to_string_lossy().replace('\\', "/"),
+            exported_files: listed_files,
+            skipped_files: 0,
+            total_bytes_written: total_written,
+            notes,
+        });
+    }
 
     let max_bytes = config.max_file_size_kb.saturating_mul(1024);
     for selected in selection.files {
@@ -262,6 +287,14 @@ fn build_structure_lines(files: &[crate::application::selection::SelectedFile]) 
     entries.into_iter().map(|entry| entry.path).collect()
 }
 
+fn estimate_structure_bytes(files: &[crate::application::selection::SelectedFile]) -> u64 {
+    let mut total_bytes = ("=== STRUCTURE ===".len() + 1) as u64;
+    for line in build_structure_lines(files) {
+        total_bytes = total_bytes.saturating_add((line.len() + 1) as u64);
+    }
+    total_bytes.saturating_add(1)
+}
+
 fn write_file_content_streaming(
     writer: &mut BufWriter<File>,
     file_handle: &mut File,
@@ -425,6 +458,7 @@ mod tests {
             exclude_globs: vec![],
             include_extensions: vec![],
             exclude_extensions: vec![],
+            structure_only: false,
             max_file_size_kb,
             large_file_strategy: strategy,
             manual_selections: BTreeMap::new(),
@@ -577,5 +611,34 @@ mod tests {
         let first_output = fs::read(first).unwrap();
         let second_output = fs::read(second).unwrap();
         assert_eq!(first_output, second_output);
+    }
+
+    #[test]
+    fn structure_only_export_writes_structure_without_file_blocks() {
+        let root = tempdir().unwrap();
+        fs::write(root.path().join("a.txt"), "hello").unwrap();
+        fs::write(root.path().join("b.txt"), "world").unwrap();
+
+        let output_dir = tempdir().unwrap();
+        let output_path = output_dir.path().join("structure-only.txt");
+        let mut config = test_config(root.path().to_string_lossy().as_ref(), LargeFileStrategy::Truncate, 256);
+        config.structure_only = true;
+
+        let result = run_export(
+            &config,
+            output_path.to_string_lossy().as_ref(),
+            &ScanLimits::default(),
+        )
+        .unwrap();
+
+        let output = fs::read_to_string(output_path).unwrap();
+        assert!(output.contains("=== STRUCTURE ==="));
+        assert!(!output.contains("=== FILE:"));
+        assert_eq!(result.exported_files, 2);
+        assert_eq!(result.skipped_files, 0);
+        assert!(result
+            .notes
+            .iter()
+            .any(|note| note.contains("Structure-only export")));
     }
 }

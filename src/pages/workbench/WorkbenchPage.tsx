@@ -205,6 +205,12 @@ export function WorkbenchPage() {
     }
   };
 
+  const handleStructureOnlyChange = (nextValue: boolean) => {
+    updateConfig({ structureOnly: nextValue });
+    setPreview(null);
+    setExportResult(null);
+  };
+
   return (
     <main className="workbench">
       <DirectoryPanel
@@ -227,11 +233,13 @@ export function WorkbenchPage() {
       <ExportPanel
         busy={busy}
         outputPath={outputPath}
+        structureOnly={config.structureOnly}
         preview={preview}
         exportResult={exportResult}
         selectionSummary={selectionSummary}
         errorMessage={errorMessage}
         onOutputPathChange={setOutputPath}
+        onStructureOnlyChange={handleStructureOnlyChange}
         onPickOutputPath={handlePickOutputPath}
         onPreview={handlePreview}
         onExport={handleExport}

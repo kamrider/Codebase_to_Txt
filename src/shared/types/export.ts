@@ -9,6 +9,7 @@ export interface ExportConfig {
   excludeGlobs: string[];
   includeExtensions: string[];
   excludeExtensions: string[];
+  structureOnly: boolean;
   maxFileSizeKB: number;
   largeFileStrategy: LargeFileStrategy;
   manualSelections: Record<string, ManualSelectionState>;
@@ -52,6 +53,7 @@ export const defaultExportConfig: ExportConfig = {
   excludeGlobs: [],
   includeExtensions: [],
   excludeExtensions: [],
+  structureOnly: false,
   maxFileSizeKB: 256,
   largeFileStrategy: "truncate",
   manualSelections: {},

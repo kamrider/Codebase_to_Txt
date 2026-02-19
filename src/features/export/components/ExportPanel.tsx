@@ -7,11 +7,13 @@
 type ExportPanelProps = {
   busy: boolean;
   outputPath: string;
+  structureOnly: boolean;
   preview: PreviewMeta | null;
   exportResult: ExportResult | null;
   selectionSummary: SelectionSummary | null;
   errorMessage: string | null;
   onOutputPathChange: (nextPath: string) => void;
+  onStructureOnlyChange: (nextValue: boolean) => void;
   onPickOutputPath: () => Promise<void>;
   onPreview: () => Promise<void>;
   onExport: () => Promise<void>;
@@ -20,11 +22,13 @@ type ExportPanelProps = {
 export function ExportPanel({
   busy,
   outputPath,
+  structureOnly,
   preview,
   exportResult,
   selectionSummary,
   errorMessage,
   onOutputPathChange,
+  onStructureOnlyChange,
   onPickOutputPath,
   onPreview,
   onExport,
@@ -48,6 +52,18 @@ export function ExportPanel({
               Choose File
             </button>
           </div>
+        </div>
+
+        <div className="field">
+          <label htmlFor="structure-only">
+            <input
+              id="structure-only"
+              type="checkbox"
+              checked={structureOnly}
+              onChange={(event) => onStructureOnlyChange(event.currentTarget.checked)}
+            />{" "}
+            Export structure only (no file contents)
+          </label>
         </div>
 
         <div className="actions">
