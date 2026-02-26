@@ -453,7 +453,7 @@ dependencies = [
 
 [[package]]
 name = "codebase-to-txt"
-version = "1.0.2"
+version = "1.0.3"
 dependencies = [
  "content_inspector",
  "globset",

@@ -61,6 +61,7 @@ pub fn scan_single_level(
             name,
             is_dir,
             children_count: if is_dir { None } else { Some(0) },
+            included_by_rules: false,
             ignored_by_gitignore,
             children: vec![],
         });

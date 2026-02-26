@@ -11,7 +11,14 @@ import {
   scanChildren,
   scanTree,
 } from "../../shared/api/tauriClient";
-import type { ExportConfig, ExportResult, PreviewMeta, SelectionSummary, TreeNode } from "../../shared/types/export";
+import type {
+  ExportConfig,
+  ExportResult,
+  PreviewMeta,
+  RulesDraft,
+  SelectionSummary,
+  TreeNode,
+} from "../../shared/types/export";
 import { defaultExportConfig } from "../../shared/types/export";
 
 export function WorkbenchPage() {
@@ -25,6 +32,7 @@ export function WorkbenchPage() {
       rootPath: persistedRootPath,
     };
   });
+  const [rulesDraft, setRulesDraft] = useState<RulesDraft>(() => extractRulesDraft(config));
   const [tree, setTree] = useState<TreeNode | null>(null);
   const [selectionSummary, setSelectionSummary] = useState<SelectionSummary | null>(null);
   const [preview, setPreview] = useState<PreviewMeta | null>(null);
@@ -36,6 +44,7 @@ export function WorkbenchPage() {
   const [loadingPaths, setLoadingPaths] = useState<Set<string>>(new Set());
 
   const busy = useMemo(() => pendingAction !== null, [pendingAction]);
+  const rulesDirty = useMemo(() => !areRulesDraftEqual(rulesDraft, extractRulesDraft(config)), [rulesDraft, config]);
 
   const runAction = async <T,>(label: string, action: () => Promise<T>): Promise<T | null> => {
     setPendingAction(label);
@@ -53,6 +62,18 @@ export function WorkbenchPage() {
 
   const updateConfig = (patch: Partial<ExportConfig>) => {
     setConfig((previous) => ({ ...previous, ...patch }));
+  };
+
+  const updateRulesDraft = (patch: Partial<RulesDraft>) => {
+    setRulesDraft((previous) => {
+      const next = { ...previous, ...patch };
+      if (areRulesDraftEqual(previous, next)) {
+        return previous;
+      }
+      return next;
+    });
+    setPreview(null);
+    setExportResult(null);
   };
 
   const handleRootPathChange = (nextPath: string) => {
@@ -83,7 +104,7 @@ export function WorkbenchPage() {
   };
 
   const handleScan = async () => {
-    const result = await runAction("scan", async () => scanTree(config.rootPath, config.useGitignore));
+    const result = await runAction("scan", async () => scanTree(config));
     if (result) {
       setTree(result);
       setExpandedPaths(new Set(["."]));
@@ -113,7 +134,7 @@ export function WorkbenchPage() {
 
     setLoadingPaths((previous) => new Set(previous).add(node.path));
     try {
-      const children = await scanChildren(config.rootPath, node.path, config.useGitignore);
+      const children = await scanChildren(config, node.path);
       setTree((previous) => {
         if (!previous) {
           return previous;
@@ -136,8 +157,52 @@ export function WorkbenchPage() {
     }
   };
 
+  const handleApplyRules = async (): Promise<ExportConfig | null> => {
+    if (!rulesDirty) {
+      return config;
+    }
+
+    const nextConfig: ExportConfig = {
+      ...config,
+      ...rulesDraft,
+    };
+    const result = await runAction("apply-rules", async () => {
+      const nextTree = await scanTree(nextConfig);
+      const nextSummary = await evaluateSelection(nextConfig);
+      return { nextTree, nextSummary };
+    });
+    if (!result) {
+      return null;
+    }
+
+    setConfig(nextConfig);
+    setRulesDraft(extractRulesDraft(nextConfig));
+    setTree(result.nextTree);
+    setSelectionSummary(result.nextSummary);
+    setExpandedPaths(new Set(["."]));
+    setLoadingPaths(new Set());
+    setPreview(null);
+    setExportResult(null);
+    return nextConfig;
+  };
+
+  const ensureRulesApplied = async (): Promise<ExportConfig | null> => {
+    if (!rulesDirty) {
+      return config;
+    }
+    return handleApplyRules();
+  };
+
   const handleEvaluate = async () => {
-    const result = await runAction("evaluate", async () => evaluateSelection(config));
+    const hadPendingRules = rulesDirty;
+    const activeConfig = await ensureRulesApplied();
+    if (!activeConfig) {
+      return;
+    }
+    if (hadPendingRules) {
+      return;
+    }
+    const result = await runAction("evaluate", async () => evaluateSelection(activeConfig));
     if (result) {
       setSelectionSummary(result);
     }
@@ -168,7 +233,12 @@ export function WorkbenchPage() {
   };
 
   const handlePreview = async () => {
-    const result = await runAction("preview", async () => previewExport(config));
+    const activeConfig = await ensureRulesApplied();
+    if (!activeConfig) {
+      return;
+    }
+
+    const result = await runAction("preview", async () => previewExport(activeConfig));
     if (result) {
       setPreview(result);
     }
@@ -180,7 +250,12 @@ export function WorkbenchPage() {
       return;
     }
 
-    const evaluated = await runAction("evaluate", async () => evaluateSelection(config));
+    const activeConfig = await ensureRulesApplied();
+    if (!activeConfig) {
+      return;
+    }
+
+    const evaluated = await runAction("evaluate", async () => evaluateSelection(activeConfig));
     if (!evaluated) {
       return;
     }
@@ -192,7 +267,7 @@ export function WorkbenchPage() {
       return;
     }
 
-    const result = await runAction("export", async () => runExport(config, outputPath.trim()));
+    const result = await runAction("export", async () => runExport(activeConfig, outputPath.trim()));
     if (result) {
       setExportResult(result);
     }
@@ -215,7 +290,6 @@ export function WorkbenchPage() {
     <main className="workbench">
       <DirectoryPanel
         rootPath={config.rootPath}
-        useGitignore={config.useGitignore}
         busy={busy}
         tree={tree}
         selectionSummary={selectionSummary}
@@ -229,7 +303,15 @@ export function WorkbenchPage() {
         onToggleNode={handleToggleNode}
         onSyncManualSelections={handleSyncManualSelections}
       />
-      <RulesPanel config={config} onUpdateConfig={updateConfig} />
+      <RulesPanel
+        config={config}
+        rulesDraft={rulesDraft}
+        rulesDirty={rulesDirty}
+        busy={busy}
+        onUpdateConfig={updateConfig}
+        onUpdateRulesDraft={updateRulesDraft}
+        onApplyRules={handleApplyRules}
+      />
       <ExportPanel
         busy={busy}
         outputPath={outputPath}
@@ -246,6 +328,38 @@ export function WorkbenchPage() {
       />
     </main>
   );
+}
+
+function extractRulesDraft(config: ExportConfig): RulesDraft {
+  return {
+    useGitignore: config.useGitignore,
+    includeGlobs: [...config.includeGlobs],
+    excludeGlobs: [...config.excludeGlobs],
+    includeExtensions: [...config.includeExtensions],
+    excludeExtensions: [...config.excludeExtensions],
+  };
+}
+
+function areRulesDraftEqual(left: RulesDraft, right: RulesDraft): boolean {
+  return (
+    left.useGitignore === right.useGitignore &&
+    areStringListsEqual(left.includeGlobs, right.includeGlobs) &&
+    areStringListsEqual(left.excludeGlobs, right.excludeGlobs) &&
+    areStringListsEqual(left.includeExtensions, right.includeExtensions) &&
+    areStringListsEqual(left.excludeExtensions, right.excludeExtensions)
+  );
+}
+
+function areStringListsEqual(left: string[], right: string[]): boolean {
+  if (left.length !== right.length) {
+    return false;
+  }
+  for (let index = 0; index < left.length; index += 1) {
+    if (left[index] !== right[index]) {
+      return false;
+    }
+  }
+  return true;
 }
 
 function formatBackendError(raw: string): string {

@@ -160,7 +160,7 @@ mod tests {
     }
 
     #[test]
-    fn manual_inherit_defers_to_gitignore_and_globs() {
+    fn include_rules_override_exclude_and_gitignore_when_manual_is_inherit() {
         let root = tempdir().unwrap();
         fs::write(root.path().join(".gitignore"), "ignored.txt\n").unwrap();
         fs::write(root.path().join("ignored.txt"), "ignored").unwrap();
@@ -187,8 +187,8 @@ mod tests {
 
         let run = collect_selected_files(&config, &ScanLimits::default()).unwrap();
         let included: Vec<&str> = run.files.iter().map(|item| item.rel_path.as_str()).collect();
-        assert_eq!(included, vec!["allowed.txt"]);
-        assert!(run.excluded_files >= 2);
+        assert_eq!(included, vec!["allowed.txt", "blocked.txt", "ignored.txt"]);
+        assert_eq!(run.excluded_files, 1);
     }
 
     #[test]

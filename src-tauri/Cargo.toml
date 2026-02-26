@@ -1,6 +1,6 @@
 [package]
 name = "codebase-to-txt"
-version = "1.0.2"
+version = "1.0.3"
 description = "Codebase to Txt desktop app"
 authors = ["you"]
 edition = "2021"

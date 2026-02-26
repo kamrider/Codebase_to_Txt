@@ -16,11 +16,17 @@ export interface ExportConfig {
   outputFormat: OutputFormat;
 }
 
+export type RulesDraft = Pick<
+  ExportConfig,
+  "useGitignore" | "includeGlobs" | "excludeGlobs" | "includeExtensions" | "excludeExtensions"
+>;
+
 export interface TreeNode {
   path: string;
   name: string;
   isDir: boolean;
   childrenCount: number | null;
+  includedByRules: boolean;
   ignoredByGitignore: boolean;
   children: TreeNode[];
 }

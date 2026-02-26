@@ -1,12 +1,19 @@
-﻿import type {
+﻿import { useEffect, useState } from "react";
+import type {
   ExportConfig,
   LargeFileStrategy,
   OutputFormat,
+  RulesDraft,
 } from "../../../shared/types/export";
 
 type RulesPanelProps = {
   config: ExportConfig;
+  rulesDraft: RulesDraft;
+  rulesDirty: boolean;
+  busy: boolean;
   onUpdateConfig: (patch: Partial<ExportConfig>) => void;
+  onUpdateRulesDraft: (patch: Partial<RulesDraft>) => void;
+  onApplyRules: () => Promise<ExportConfig | null>;
 };
 
 type ListField =
@@ -17,27 +24,51 @@ type ListField =
 
 function parseCsv(rawValue: string): string[] {
   return rawValue
-    .split(",")
+    .split(/[\u002C\uFF0C]/)
     .map((item) => item.trim())
     .filter((item) => item.length > 0);
 }
 
-export function RulesPanel({ config, onUpdateConfig }: RulesPanelProps) {
+export function RulesPanel({
+  config,
+  rulesDraft,
+  rulesDirty,
+  busy,
+  onUpdateConfig,
+  onUpdateRulesDraft,
+  onApplyRules,
+}: RulesPanelProps) {
+  const [includeGlobsText, setIncludeGlobsText] = useState(() => rulesDraft.includeGlobs.join(", "));
+  const [excludeGlobsText, setExcludeGlobsText] = useState(() => rulesDraft.excludeGlobs.join(", "));
+  const [includeExtensionsText, setIncludeExtensionsText] = useState(() =>
+    rulesDraft.includeExtensions.join(", "),
+  );
+  const [excludeExtensionsText, setExcludeExtensionsText] = useState(() =>
+    rulesDraft.excludeExtensions.join(", "),
+  );
+
+  useEffect(() => {
+    setIncludeGlobsText(rulesDraft.includeGlobs.join(", "));
+    setExcludeGlobsText(rulesDraft.excludeGlobs.join(", "));
+    setIncludeExtensionsText(rulesDraft.includeExtensions.join(", "));
+    setExcludeExtensionsText(rulesDraft.excludeExtensions.join(", "));
+  }, [rulesDraft]);
+
   const updateListField = (field: ListField, rawValue: string) => {
     const nextList = parseCsv(rawValue);
     if (field === "includeGlobs") {
-      onUpdateConfig({ includeGlobs: nextList });
+      onUpdateRulesDraft({ includeGlobs: nextList });
       return;
     }
     if (field === "excludeGlobs") {
-      onUpdateConfig({ excludeGlobs: nextList });
+      onUpdateRulesDraft({ excludeGlobs: nextList });
       return;
     }
     if (field === "includeExtensions") {
-      onUpdateConfig({ includeExtensions: nextList });
+      onUpdateRulesDraft({ includeExtensions: nextList });
       return;
     }
-    onUpdateConfig({ excludeExtensions: nextList });
+    onUpdateRulesDraft({ excludeExtensions: nextList });
   };
 
   return (
@@ -51,8 +82,8 @@ export function RulesPanel({ config, onUpdateConfig }: RulesPanelProps) {
             <input
               id="use-gitignore"
               type="checkbox"
-              checked={config.useGitignore}
-              onChange={(event) => onUpdateConfig({ useGitignore: event.currentTarget.checked })}
+              checked={rulesDraft.useGitignore}
+              onChange={(event) => onUpdateRulesDraft({ useGitignore: event.currentTarget.checked })}
             />{" "}
             Apply .gitignore
           </label>
@@ -62,8 +93,12 @@ export function RulesPanel({ config, onUpdateConfig }: RulesPanelProps) {
           <label htmlFor="include-globs">Include Globs (comma-separated)</label>
           <input
             id="include-globs"
-            value={config.includeGlobs.join(", ")}
-            onChange={(event) => updateListField("includeGlobs", event.currentTarget.value)}
+            value={includeGlobsText}
+            onChange={(event) => {
+              const raw = event.currentTarget.value;
+              setIncludeGlobsText(raw);
+              updateListField("includeGlobs", raw);
+            }}
             placeholder="src/**, docs/**"
           />
         </div>
@@ -72,8 +107,12 @@ export function RulesPanel({ config, onUpdateConfig }: RulesPanelProps) {
           <label htmlFor="exclude-globs">Exclude Globs (comma-separated)</label>
           <input
             id="exclude-globs"
-            value={config.excludeGlobs.join(", ")}
-            onChange={(event) => updateListField("excludeGlobs", event.currentTarget.value)}
+            value={excludeGlobsText}
+            onChange={(event) => {
+              const raw = event.currentTarget.value;
+              setExcludeGlobsText(raw);
+              updateListField("excludeGlobs", raw);
+            }}
             placeholder="node_modules/**, dist/**"
           />
         </div>
@@ -82,10 +121,12 @@ export function RulesPanel({ config, onUpdateConfig }: RulesPanelProps) {
           <label htmlFor="include-extensions">Include Extensions (comma-separated)</label>
           <input
             id="include-extensions"
-            value={config.includeExtensions.join(", ")}
-            onChange={(event) =>
-              updateListField("includeExtensions", event.currentTarget.value)
-            }
+            value={includeExtensionsText}
+            onChange={(event) => {
+              const raw = event.currentTarget.value;
+              setIncludeExtensionsText(raw);
+              updateListField("includeExtensions", raw);
+            }}
             placeholder=".ts, .tsx, .md"
           />
         </div>
@@ -94,12 +135,25 @@ export function RulesPanel({ config, onUpdateConfig }: RulesPanelProps) {
           <label htmlFor="exclude-extensions">Exclude Extensions (comma-separated)</label>
           <input
             id="exclude-extensions"
-            value={config.excludeExtensions.join(", ")}
-            onChange={(event) =>
-              updateListField("excludeExtensions", event.currentTarget.value)
-            }
+            value={excludeExtensionsText}
+            onChange={(event) => {
+              const raw = event.currentTarget.value;
+              setExcludeExtensionsText(raw);
+              updateListField("excludeExtensions", raw);
+            }}
             placeholder=".png, .ico, .zip"
           />
+        </div>
+
+        <div className="actions">
+          <button
+            className="btn primary"
+            onClick={() => void onApplyRules()}
+            disabled={busy || !rulesDirty}
+          >
+            Apply Rules
+          </button>
+          {rulesDirty ? <p className="meta">Pending rule changes.</p> : null}
         </div>
 
         <div className="field">

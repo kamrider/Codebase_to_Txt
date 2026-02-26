@@ -68,18 +68,30 @@ impl RuleEngine {
             }
         }
 
-        if !is_dir {
-            if !self.matches_include_extension(rel_path) {
-                return Decision::Exclude;
-            }
-            if self.matches_exclude_extension(rel_path) {
-                return Decision::Exclude;
-            }
-        }
-
-        if !self.matches_include_glob(rel_path) {
+        let include_glob_match = self.matches_include_glob(rel_path);
+        if matches!(include_glob_match, Some(false)) {
             return Decision::Exclude;
         }
+
+        let include_ext_match = if is_dir {
+            None
+        } else {
+            self.matches_include_extension(rel_path)
+        };
+        if matches!(include_ext_match, Some(false)) {
+            return Decision::Exclude;
+        }
+
+        let include_rule_matched =
+            matches!(include_glob_match, Some(true)) || matches!(include_ext_match, Some(true));
+        if include_rule_matched {
+            return Decision::Include;
+        }
+
+        if !is_dir && self.matches_exclude_extension(rel_path) {
+            return Decision::Exclude;
+        }
+
         if self.matches_exclude_glob(rel_path) {
             return Decision::Exclude;
         }
@@ -95,11 +107,8 @@ impl RuleEngine {
         Decision::Include
     }
 
-    fn matches_include_glob(&self, rel_path: &str) -> bool {
-        if let Some(set) = &self.include_globs {
-            return set.is_match(rel_path);
-        }
-        true
+    fn matches_include_glob(&self, rel_path: &str) -> Option<bool> {
+        self.include_globs.as_ref().map(|set| set.is_match(rel_path))
     }
 
     fn matches_exclude_glob(&self, rel_path: &str) -> bool {
@@ -109,12 +118,12 @@ impl RuleEngine {
         false
     }
 
-    fn matches_include_extension(&self, rel_path: &str) -> bool {
+    fn matches_include_extension(&self, rel_path: &str) -> Option<bool> {
         if self.include_ext.is_empty() {
-            return true;
+            return None;
         }
         let lower = rel_path.to_lowercase();
-        self.include_ext.iter().any(|ext| lower.ends_with(ext))
+        Some(self.include_ext.iter().any(|ext| lower.ends_with(ext)))
     }
 
     fn matches_exclude_extension(&self, rel_path: &str) -> bool {
