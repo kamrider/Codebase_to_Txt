@@ -74,7 +74,9 @@ export function RulesPanel({
   return (
     <section className="panel">
       <div className="panel-header">
-        <h2>Rules</h2>
+        <div className="panel-header-icon">⚙️</div>
+        <h2>Filter Rules</h2>
+        <span className="panel-step">Step 2</span>
       </div>
       <div className="panel-body">
         <div className="field">

@@ -140,7 +140,9 @@ export function DirectoryPanel({
   return (
     <section className="panel">
       <div className="panel-header">
+        <div className="panel-header-icon">📁</div>
         <h2>Directory Scan</h2>
+        <span className="panel-step">Step 1</span>
       </div>
       <div className="panel-body">
         <div className="field">

@@ -1,4 +1,4 @@
-﻿import type {
+import type {
   ExportResult,
   PreviewMeta,
   SelectionSummary,
@@ -36,37 +36,26 @@ export function ExportPanel({
   return (
     <section className="panel">
       <div className="panel-header">
-        <h2>Preview and Export</h2>
+        <div className="panel-header-icon">🚀</div>
+        <h2>Preview & Export</h2>
+        <span className="panel-step">Step 3</span>
       </div>
       <div className="panel-body">
+
         <div className="field">
           <label htmlFor="output-path">Output File</label>
           <input
             id="output-path"
             value={outputPath}
-            onChange={(event) => onOutputPathChange(event.currentTarget.value)}
+            onChange={(e) => onOutputPathChange(e.currentTarget.value)}
             placeholder="D:/exports/codebase.txt"
           />
-          <div className="actions">
-            <button className="btn" onClick={() => void onPickOutputPath()} disabled={busy}>
-              Choose File
-            </button>
-          </div>
-        </div>
-
-        <div className="field">
-          <label htmlFor="structure-only">
-            <input
-              id="structure-only"
-              type="checkbox"
-              checked={structureOnly}
-              onChange={(event) => onStructureOnlyChange(event.currentTarget.checked)}
-            />{" "}
-            Export structure only (no file contents)
-          </label>
         </div>
 
         <div className="actions">
+          <button className="btn" onClick={() => void onPickOutputPath()} disabled={busy}>
+            Browse
+          </button>
           <button className="btn" onClick={() => void onPreview()} disabled={busy}>
             Preview
           </button>
@@ -75,49 +64,70 @@ export function ExportPanel({
           </button>
         </div>
 
-        <div className="status-card">
-          <h3>Preview Stats</h3>
-          {preview ? (
-            <>
-              <p>Included files: {preview.includedFiles}</p>
-              <p>Estimated bytes: {preview.estimatedBytes}</p>
-              <p>Estimated tokens: {preview.estimatedTokens ?? "Planned in v1.1"}</p>
-              <p className="meta">Warnings: {preview.warnings.join(" | ") || "None"}</p>
-            </>
-          ) : (
-            <p className="meta">No preview yet.</p>
-          )}
+        <div className="field">
+          <label htmlFor="structure-only">
+            <input
+              id="structure-only"
+              type="checkbox"
+              checked={structureOnly}
+              onChange={(e) => onStructureOnlyChange(e.currentTarget.checked)}
+            />
+            Structure only (no file contents)
+          </label>
         </div>
 
-        <div className="status-card">
-          <h3>Export Result</h3>
-          {exportResult ? (
-            <>
-              <p>Output path: {exportResult.outputPath}</p>
-              <p>Exported files: {exportResult.exportedFiles}</p>
-              <p>Skipped files: {exportResult.skippedFiles}</p>
-              <p>Total bytes written: {exportResult.totalBytesWritten}</p>
-              <p className="meta">Notes: {exportResult.notes.join(" | ") || "None"}</p>
-            </>
-          ) : (
-            <p className="meta">No export yet.</p>
-          )}
+        {/* Stats row: Preview + Selection side by side */}
+        <div className="stats-row">
+          <div className={`status-card${preview ? " accent" : ""}`}>
+            <h3>Preview</h3>
+            {preview ? (
+              <>
+                <p className="stat-num">{preview.includedFiles}</p>
+                <p className="stat-label">files · {formatBytes(preview.estimatedBytes)}</p>
+                <p className="meta">{preview.warnings.length ? `⚠ ${preview.warnings[0]}` : "No warnings"}</p>
+              </>
+            ) : (
+              <p className="meta">Run Preview first.</p>
+            )}
+          </div>
+
+          <div className={`status-card${selectionSummary ? " accent" : ""}`}>
+            <h3>Selection</h3>
+            {selectionSummary ? (
+              <>
+                <p className="stat-num">{selectionSummary.includedFiles}</p>
+                <p className="stat-label">included</p>
+                <p className="meta">{selectionSummary.excludedFiles} excluded</p>
+              </>
+            ) : (
+              <p className="meta">Run Evaluate first.</p>
+            )}
+          </div>
         </div>
 
-        <div className="status-card">
-          <h3>Current Selection</h3>
-          {selectionSummary ? (
-            <>
-              <p>Included: {selectionSummary.includedFiles}</p>
-              <p>Excluded: {selectionSummary.excludedFiles}</p>
-            </>
-          ) : (
-            <p className="meta">No evaluation yet.</p>
-          )}
-        </div>
+        {/* Export Result */}
+        {exportResult && (
+          <div className="status-card success">
+            <h3>Export Result</h3>
+            <p className="stat-num">{exportResult.exportedFiles}</p>
+            <p className="stat-label">files exported · {formatBytes(exportResult.totalBytesWritten)}</p>
+            <p className="meta" style={{ marginTop: "0.4rem", wordBreak: "break-all" }}>
+              → {exportResult.outputPath}
+            </p>
+            {exportResult.skippedFiles > 0 && (
+              <p className="meta">⚠ {exportResult.skippedFiles} skipped</p>
+            )}
+          </div>
+        )}
 
-        {errorMessage ? <p className="error">{errorMessage}</p> : null}
+        {errorMessage && <p className="error">{errorMessage}</p>}
       </div>
     </section>
   );
+}
+
+function formatBytes(bytes: number): string {
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+  return `${(bytes / 1024 / 1024).toFixed(2)} MB`;
 }
